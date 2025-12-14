@@ -3,13 +3,23 @@ from typing import Any, Callable
 
 from collections.abc import Sequence
 
-class OptimizedSequence(ABCMeta):
-    def __new__(mcls, name: str, bases: tuple[type, ...], namespace: dict[str, Any], *, internal_size: int, mutable: bool, project: Callable[[list], Sequence]) -> type:
-        slots = tuple(f'_item{i}' for i in range(internal_size)) if internal_size > 0 else ()
-        namespace['__slots__'] = slots
 
-        if '__class_getitem__' not in namespace:
-            namespace['__class_getitem__'] = classmethod(lambda cls, _: cls)
+class OptimizedSequence(ABCMeta):
+    def __new__(
+        mcls,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        *,
+        internal_size: int,
+        mutable: bool,
+        project: Callable[[list], Sequence],
+    ) -> type:
+        slots = tuple(f"_item{i}" for i in range(internal_size)) if internal_size > 0 else ()
+        namespace["__slots__"] = slots
+
+        if "__class_getitem__" not in namespace:
+            namespace["__class_getitem__"] = classmethod(lambda cls, _: cls)
 
         mcls._add_general_methods(slots, namespace)
         mcls._add_read_methods(slots, namespace, internal_size, project)
@@ -26,7 +36,12 @@ class OptimizedSequence(ABCMeta):
         namespace["__str__"] = __str__
 
     @staticmethod
-    def _add_read_methods(item_slots: Sequence[str], namespace: dict[str, Any], internal_size: int, project: Callable[[list], Sequence]) -> None:
+    def _add_read_methods(
+        item_slots: Sequence[str],
+        namespace: dict[str, Any],
+        internal_size: int,
+        project: Callable[[list], Sequence],
+    ) -> None:
         if internal_size > 0:
             init_ir = f"""
 def __init__(self, {",".join(item_slots)}):
@@ -45,7 +60,9 @@ def __init__(self, {",".join(item_slots)}):
                     indices = range(*key.indices(len(self)))
                     return project([self[i] for i in indices])
                 case _:
-                    raise TypeError(f"Sequence accessors must be integers or slices., not {type(key)}")
+                    raise TypeError(
+                        f"Sequence accessors must be integers or slices., not {type(key)}"
+                    )
 
         def __len__(self):
             return internal_size

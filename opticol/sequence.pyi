@@ -1,5 +1,5 @@
 from typing import TypeVar, overload, Generic
-from collections.abc import Iterable, MutableSequence, Sequence
+from collections.abc import Sequence
 
 def project[T](original: Sequence[T]) -> Sequence[T]: ...
 
@@ -10,6 +10,7 @@ class _Sequence(Sequence[T_co], Generic[T_co]):
     As Sequence is an abstract base class, the type stubs need to explicitly annotate the overriden
     methods which can then be referenced for each optimized sequence type.
     """
+
     @overload
     def __getitem__(self, key: int) -> T_co: ...
     @overload

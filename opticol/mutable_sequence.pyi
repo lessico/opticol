@@ -1,5 +1,5 @@
-from collections.abc import Iterable
-from typing import Any, Generic, MutableSequence, TypeVar, overload
+from collections.abc import Iterable, MutableSequence
+from typing import overload
 
 def project[T](original: MutableSequence[T], fallback: bool = False) -> MutableSequence[T]: ...
 
@@ -8,6 +8,7 @@ class _MutableSequence[T](MutableSequence[T]):
     As MutableSequence is an abstract base class, the type stubs need to explicitly annotate the overriden
     methods which can then be referenced for each optimized sequence type.
     """
+
     @overload
     def __getitem__(self, index: int) -> T: ...
     @overload

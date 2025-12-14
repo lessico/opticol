@@ -5,3 +5,14 @@ description = "Implementations for the various Python Collection ABCs that optim
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []
+
+[tool.black]
+line-length = 100
+target-version = ["py312"]
+preview = true
+
+[dependency-groups]
+dev = [
+    "black>=25.12.0",
+    "mypy>=1.19.0",
+]

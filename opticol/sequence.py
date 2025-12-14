@@ -1,16 +1,23 @@
-from typing import Sequence
+from collections.abc import Sequence
 from opticol._sequence import OptimizedSequence
 
+
 def _create_seq_class(size: int) -> type:
-    return OptimizedSequence(f"Size{size}Sequence", (Sequence,), {}, internal_size=size, mutable=False, project=project)
+    return OptimizedSequence(
+        f"Size{size}Sequence", (Sequence,), {}, internal_size=size, mutable=False, project=project
+    )
+
 
 _by_size: list[type] = []
+
+
 def project[T](original: Sequence[T]) -> Sequence[T]:
     if len(original) >= len(_by_size):
         return original
 
     ctor = _by_size[len(original)]
     return ctor(*original)
+
 
 Size0Sequence = _create_seq_class(0)
 Size1Sequence = _create_seq_class(1)
