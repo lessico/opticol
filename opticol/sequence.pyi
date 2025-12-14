@@ -7,8 +7,8 @@ T_co = TypeVar("T_co", covariant=True)
 
 class _Sequence(Sequence[T_co], Generic[T_co]):
     """
-    As Sequence is an abstract base class, the type stubs need to explicitly annotate the overriden
-    methods which can then be referenced for each optimized sequence type.
+    As Sequence is an abstract base class, the type stubs need to explicitly annotate the
+    overridden methods which can then be referenced for each optimized sequence type.
     """
 
     @overload
