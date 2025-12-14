@@ -32,10 +32,6 @@ def project[T](original: MutableSequence[T], fallback: bool = False) -> MutableS
     return ctor(*original)
 
 
-def x() -> int:
-    return 1
-
-
 Size0MutableSequence = _create_mut_seq_class(0, False)
 Size1MutableSequence = _create_mut_seq_class(1, False)
 Size2MutableSequence = _create_mut_seq_class(2, False)
