@@ -1,10 +1,18 @@
 from abc import ABCMeta
+from itertools import zip_longest
 from typing import Any, Callable
 
 from collections.abc import Sequence
 
+from opticol._sentinel import END, Overflow
 
-class OptimizedSequence(ABCMeta):
+def _adjust_index(idx: int, len: int) -> int:
+    adjusted = idx if idx >= 0 else len + idx
+    if adjusted < 0 or adjusted >= len:
+        raise IndexError(f"{adjusted} is outside of the expected bounds.")
+    return adjusted
+
+class OptimizedSequenceMeta(ABCMeta):
     def __new__(
         mcls,
         name: str,
@@ -12,31 +20,17 @@ class OptimizedSequence(ABCMeta):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-        mutable: bool,
         project: Callable[[list], Sequence],
     ) -> type:
         slots = tuple(f"_item{i}" for i in range(internal_size)) if internal_size > 0 else ()
         namespace["__slots__"] = slots
 
-        if "__class_getitem__" not in namespace:
-            namespace["__class_getitem__"] = classmethod(lambda cls, _: cls)
-
-        mcls._add_general_methods(slots, namespace)
-        mcls._add_read_methods(slots, namespace, internal_size, project)
-        if mutable:
-            mcls._add_write_methods(namespace, project)
+        mcls._add_methods(slots, namespace, internal_size, project)
 
         return super().__new__(mcls, name, bases, namespace)
 
     @staticmethod
-    def _add_general_methods(item_slots: Sequence[str], namespace: dict[str, Any]) -> None:
-        def __str__(self):
-            return f"[{", ".join(repr(getattr(self, slot)) for slot in item_slots)}]"
-
-        namespace["__str__"] = __str__
-
-    @staticmethod
-    def _add_read_methods(
+    def _add_methods(
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
@@ -52,41 +46,130 @@ def __init__(self, {",".join(item_slots)}):
         def __getitem__(self, key):
             match key:
                 case int():
-                    key = key if key >= 0 else len(self) + key
-                    if key < 0 or key >= internal_size:
-                        raise IndexError(f"{key} is not a valid index for this Collection.")
+                    key = _adjust_index(key, len(self))
                     return getattr(self, item_slots[key])
                 case slice():
                     indices = range(*key.indices(len(self)))
                     return project([self[i] for i in indices])
                 case _:
                     raise TypeError(
-                        f"Sequence accessors must be integers or slices., not {type(key)}"
+                        f"Sequence accessors must be integers or slices, not {type(key)}"
                     )
 
         def __len__(self):
             return internal_size
 
+        def __str__(self):
+            return f"[{", ".join(repr(getattr(self, slot)) for slot in item_slots)}]"
+
         namespace["__getitem__"] = __getitem__
         namespace["__len__"] = __len__
+        namespace["__str__"] = __str__
+
+
+class OptimizedMutableSequenceMeta(ABCMeta):
+    def __new__(
+        mcls,
+        name: str,
+        bases: tuple[type, ...],
+        namespace: dict[str, Any],
+        *,
+        internal_size: int,
+        project: Callable[[list], Sequence],
+    ) -> type:
+        if internal_size <= 0:
+            raise ValueError(f"{internal_size} is not a vaild size for the MutableSequence type.")
+
+        slots = tuple(f"_item{i}" for i in range(internal_size))
+        namespace["__slots__"] = slots
+
+        mcls._add_methods(slots, namespace, internal_size, project)
+
+        return super().__new__(mcls, name, bases, namespace)
 
     @staticmethod
-    def _add_write_methods(namespace: dict[str, Any], project: Callable[[list], Sequence]) -> None:
+    def _add_methods(
+        item_slots: Sequence[str],
+        namespace: dict[str, Any],
+        internal_size: int,
+        project: Callable[[list], Sequence],
+    ) -> None:
+        def _assign_list(self, l):
+            if len(l) > internal_size:
+                setattr(self, item_slots[0], Overflow(l))
+                for slot in item_slots[1:]:
+                    setattr(self, slot, END)
+            else:
+                sentinel = object()
+                for slot, v in zip_longest(item_slots, l, fillvalue=sentinel):
+                    if v is sentinel:
+                        setattr(self, slot, END)
+                    else:
+                        setattr(self, slot, v)
+
+        def __init__(self, iter):
+            collected = list(iter) if type(iter) != list else iter
+            _assign_list(self, collected)
+
+        def __getitem__(self, key):
+            first = getattr(self, item_slots[0])
+            overflowed = type(first) == Overflow
+
+            match key:
+                case int():
+                    if overflowed:
+                        return first.data[key]
+
+                    key = _adjust_index(key, len(self))
+                    v = getattr(self, item_slots[key])
+                    if v is END:
+                        raise IndexError(f"{key} is outside of the expected bounds.")
+                    return v
+                case slice():
+                    if overflowed:
+                        return project(first.data[key])
+
+                    indices = range(*key.indices(len(self)))
+                    first = getattr(self, item_slots[0])
+                    return project([self[i] for i in indices])
+                case _:
+                    raise TypeError(
+                        f"Sequence accessors must be integers or slices, not {type(key)}"
+                    )
+
         def __setitem__(self, key, value):
-            current = list(iter(self))
+            current = list(self)
             current[key] = value
-            return project(current)
+            _assign_list(self, current)
 
         def __delitem__(self, key):
-            current = list(iter(self))
+            current = list(self)
             del current[key]
-            return project(current)
+            _assign_list(self, current)
+
+        def __len__(self):
+            first = getattr(self, item_slots[0])
+            if isinstance(first, Overflow):
+                return len(first.data)
+
+            for i, slot in enumerate(item_slots):
+                if getattr(self, slot) is END:
+                    return i
+
+            return len(item_slots)
 
         def insert(self, index, value):
-            current = list(iter(self))
+            current = list(self)
             current.insert(index, value)
-            return project(current)
+            _assign_list(self, current)
 
+        def __str__(self):
+            return f"[{", ".join(repr(val) for val in self)}]"
+
+        namespace["__init__"] = __init__
+        namespace["__getitem__"] = __getitem__
         namespace["__setitem__"] = __setitem__
         namespace["__delitem__"] = __delitem__
+        namespace["__len__"] = __len__
         namespace["insert"] = insert
+        namespace["__str__"] = __str__

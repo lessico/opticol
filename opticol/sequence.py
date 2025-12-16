@@ -1,10 +1,10 @@
 from collections.abc import Sequence
-from opticol._sequence import OptimizedSequence
+from opticol._sequence import OptimizedSequenceMeta
 
 
 def _create_seq_class(size: int) -> type:
-    return OptimizedSequence(
-        f"Size{size}Sequence", (Sequence,), {}, internal_size=size, mutable=False, project=project
+    return OptimizedSequenceMeta(
+        f"Size{size}Sequence", (Sequence,), {}, internal_size=size, project=project
     )
 
 
