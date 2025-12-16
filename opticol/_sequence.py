@@ -6,11 +6,13 @@ from collections.abc import Sequence
 
 from opticol._sentinel import END, Overflow
 
+
 def _adjust_index(idx: int, len: int) -> int:
     adjusted = idx if idx >= 0 else len + idx
     if adjusted < 0 or adjusted >= len:
         raise IndexError(f"{adjusted} is outside of the expected bounds.")
     return adjusted
+
 
 class OptimizedSequenceMeta(ABCMeta):
     def __new__(

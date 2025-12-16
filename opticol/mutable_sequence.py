@@ -4,7 +4,7 @@ from opticol._sequence import OptimizedMutableSequenceMeta
 
 def _create_mut_seq_class(size: int) -> type:
     return OptimizedMutableSequenceMeta(
-        f"Size{size}MutableSequence",
+        f"_Size{size}MutableSequence",
         (MutableSequence,),
         {},
         internal_size=size,
@@ -23,10 +23,10 @@ def project[T](original: MutableSequence[T]) -> MutableSequence[T]:
     return ctor(original)
 
 
-Size1MutableSequence = _create_mut_seq_class(1)
-Size2MutableSequence = _create_mut_seq_class(2)
-Size3MutableSequence = _create_mut_seq_class(3)
+_Size1MutableSequence = _create_mut_seq_class(1)
+_Size2MutableSequence = _create_mut_seq_class(2)
+_Size3MutableSequence = _create_mut_seq_class(3)
 
 _by_size.extend(
-    [Size1MutableSequence, Size1MutableSequence, Size2MutableSequence, Size3MutableSequence]
+    [_Size1MutableSequence, _Size1MutableSequence, _Size2MutableSequence, _Size3MutableSequence]
 )
