@@ -83,6 +83,11 @@ wheels = [
 ]
 
 [[package]]
+name = "guppy3"
+version = "3.1.5"
+source = { git = "https://github.com/zhuyifei1999/guppy3.git?rev=da86ab98abf20c57b9ead4d653157af8baaa8efd#da86ab98abf20c57b9ead4d653157af8baaa8efd" }
+
+[[package]]
 name = "isort"
 version = "7.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -203,6 +208,7 @@ source = { virtual = "." }
 dev = [
     { name = "black" },
     { name = "codespell" },
+    { name = "guppy3" },
     { name = "mypy" },
     { name = "pylint" },
 ]
@@ -213,6 +219,7 @@ dev = [
 dev = [
     { name = "black", specifier = ">=25.12.0" },
     { name = "codespell", specifier = ">=2.4.1" },
+    { name = "guppy3", git = "https://github.com/zhuyifei1999/guppy3.git?rev=da86ab98abf20c57b9ead4d653157af8baaa8efd" },
     { name = "mypy", specifier = ">=1.19.0" },
     { name = "pylint", specifier = ">=4.0.4" },
 ]
