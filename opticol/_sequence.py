@@ -7,16 +7,16 @@ from collections.abc import Sequence
 from opticol._sentinel import END, Overflow
 
 
-def _adjust_index(idx: int, len: int) -> int:
-    adjusted = idx if idx >= 0 else len + idx
-    if adjusted < 0 or adjusted >= len:
+def _adjust_index(idx: int, length: int) -> int:
+    adjusted = idx if idx >= 0 else length + idx
+    if adjusted < 0 or adjusted >= length:
         raise IndexError(f"{adjusted} is outside of the expected bounds.")
     return adjusted
 
 
 class OptimizedSequenceMeta(ABCMeta):
     def __new__(
-        mcls,
+        mcs,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
@@ -24,12 +24,12 @@ class OptimizedSequenceMeta(ABCMeta):
         internal_size: int,
         project: Callable[[list], Sequence],
     ) -> type:
-        slots = tuple(f"_item{i}" for i in range(internal_size)) if internal_size > 0 else ()
+        slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
 
-        mcls._add_methods(slots, namespace, internal_size, project)
+        mcs._add_methods(slots, namespace, internal_size, project)
 
-        return super().__new__(mcls, name, bases, namespace)
+        return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
     def _add_methods(
@@ -58,7 +58,7 @@ def __init__(self, {",".join(item_slots)}):
                         f"Sequence accessors must be integers or slices, not {type(key)}"
                     )
 
-        def __len__(self):
+        def __len__(_):
             return internal_size
 
         def __repr__(self):
@@ -71,7 +71,7 @@ def __init__(self, {",".join(item_slots)}):
 
 class OptimizedMutableSequenceMeta(ABCMeta):
     def __new__(
-        mcls,
+        mcs,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
@@ -80,14 +80,14 @@ class OptimizedMutableSequenceMeta(ABCMeta):
         project: Callable[[list], Sequence],
     ) -> type:
         if internal_size <= 0:
-            raise ValueError(f"{internal_size} is not a vaild size for the MutableSequence type.")
+            raise ValueError(f"{internal_size} is not a valid size for the MutableSequence type.")
 
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
 
-        mcls._add_methods(slots, namespace, internal_size, project)
+        mcs._add_methods(slots, namespace, internal_size, project)
 
-        return super().__new__(mcls, name, bases, namespace)
+        return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
     def _add_methods(
@@ -109,13 +109,13 @@ class OptimizedMutableSequenceMeta(ABCMeta):
                     else:
                         setattr(self, slot, v)
 
-        def __init__(self, iter):
-            collected = list(iter) if type(iter) != list else iter
+        def __init__(self, it):
+            collected = it if isinstance(it, list) else list(it)
             _assign_list(self, collected)
 
         def __getitem__(self, key):
             first = getattr(self, item_slots[0])
-            overflowed = type(first) == Overflow
+            overflowed = isinstance(first, Overflow)
 
             match key:
                 case int():
@@ -154,11 +154,13 @@ class OptimizedMutableSequenceMeta(ABCMeta):
             if isinstance(first, Overflow):
                 return len(first.data)
 
-            for i, slot in enumerate(item_slots):
+            count = 0
+            for slot in item_slots:
                 if getattr(self, slot) is END:
-                    return i
+                    break
+                count += 1
 
-            return len(item_slots)
+            return count
 
         def insert(self, index, value):
             current = list(self)

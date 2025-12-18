@@ -27,6 +27,4 @@ _Size1MutableSet = _create_mut_set_class(1)
 _Size2MutableSet = _create_mut_set_class(2)
 _Size3MutableSet = _create_mut_set_class(3)
 
-_by_size.extend(
-    [_Size1MutableSet, _Size1MutableSet, _Size2MutableSet, _Size3MutableSet]
-)
+_by_size.extend([_Size1MutableSet, _Size1MutableSet, _Size2MutableSet, _Size3MutableSet])

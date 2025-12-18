@@ -2,14 +2,14 @@ from abc import ABCMeta
 from itertools import zip_longest
 from typing import Any, Callable
 
-from collections.abc import Set
+from collections.abc import Sequence, Set
 
 from opticol._sentinel import END, Overflow
 
 
 class OptimizedSetMeta(ABCMeta):
     def __new__(
-        mcls,
+        mcs,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
@@ -17,16 +17,16 @@ class OptimizedSetMeta(ABCMeta):
         internal_size: int,
         project: Callable[[set], Set],
     ) -> type:
-        slots = tuple(f"_item{i}" for i in range(internal_size)) if internal_size > 0 else ()
+        slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
 
-        mcls._add_methods(slots, namespace, internal_size, project)
+        mcs._add_methods(slots, namespace, internal_size, project)
 
-        return super().__new__(mcls, name, bases, namespace)
+        return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
     def _add_methods(
-        item_slots: tuple[str, ...],
+        item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
         project: Callable[[set], Set],
@@ -48,7 +48,7 @@ def __init__(self, {",".join(item_slots)}):
             for slot in item_slots:
                 yield getattr(self, slot)
 
-        def __len__(self):
+        def __len__(_):
             return internal_size
 
         def __repr__(self):
@@ -56,8 +56,8 @@ def __init__(self, {",".join(item_slots)}):
                 return "set()"
             return f"{{{", ".join(repr(getattr(self, slot)) for slot in item_slots)}}}"
 
-        def _from_iterable(cls, iter):
-            return project(set(iter))
+        def _from_iterable(_, it):
+            return project(set(it))
 
         namespace["__contains__"] = __contains__
         namespace["__iter__"] = __iter__
@@ -68,7 +68,7 @@ def __init__(self, {",".join(item_slots)}):
 
 class OptimizedMutableSetMeta(ABCMeta):
     def __new__(
-        mcls,
+        mcs,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
@@ -82,13 +82,13 @@ class OptimizedMutableSetMeta(ABCMeta):
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
 
-        mcls._add_methods(slots, namespace, internal_size, project)
+        mcs._add_methods(slots, namespace, internal_size, project)
 
-        return super().__new__(mcls, name, bases, namespace)
+        return super().__new__(mcs, name, bases, namespace)
 
     @staticmethod
     def _add_methods(
-        item_slots: tuple[str, ...],
+        item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
         project: Callable[[set], Set],
@@ -106,8 +106,8 @@ class OptimizedMutableSetMeta(ABCMeta):
                     else:
                         setattr(self, slot, v)
 
-        def __init__(self, iter):
-            collected = set(iter) if type(iter) != set else iter
+        def __init__(self, it):
+            collected = it if isinstance(it, set) else set(it)
             _assign_set(self, collected)
 
         def __contains__(self, value):
@@ -140,11 +140,13 @@ class OptimizedMutableSetMeta(ABCMeta):
             if isinstance(first, Overflow):
                 return len(first.data)
 
-            for i, slot in enumerate(item_slots):
+            count = 0
+            for slot in item_slots:
                 if getattr(self, slot) is END:
-                    return i
+                    break
+                count += 1
 
-            return len(item_slots)
+            return count
 
         def add(self, value):
             current = set(self)
@@ -161,8 +163,8 @@ class OptimizedMutableSetMeta(ABCMeta):
                 return "set()"
             return f"{{{", ".join(repr(val) for val in self)}}}"
 
-        def _from_iterable(cls, iter):
-            return project(set(iter))
+        def _from_iterable(_, it):
+            return project(set(it))
 
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__

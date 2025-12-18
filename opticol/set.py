@@ -3,9 +3,7 @@ from opticol._set import OptimizedSetMeta
 
 
 def _create_set_class(size: int) -> type:
-    return OptimizedSetMeta(
-        f"_Size{size}Set", (Set,), {}, internal_size=size, project=project
-    )
+    return OptimizedSetMeta(f"_Size{size}Set", (Set,), {}, internal_size=size, project=project)
 
 
 _by_size: list[type] = []
