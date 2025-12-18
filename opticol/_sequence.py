@@ -61,12 +61,12 @@ def __init__(self, {",".join(item_slots)}):
         def __len__(self):
             return internal_size
 
-        def __str__(self):
+        def __repr__(self):
             return f"[{", ".join(repr(getattr(self, slot)) for slot in item_slots)}]"
 
         namespace["__getitem__"] = __getitem__
         namespace["__len__"] = __len__
-        namespace["__str__"] = __str__
+        namespace["__repr__"] = __repr__
 
 
 class OptimizedMutableSequenceMeta(ABCMeta):
@@ -165,7 +165,7 @@ class OptimizedMutableSequenceMeta(ABCMeta):
             current.insert(index, value)
             _assign_list(self, current)
 
-        def __str__(self):
+        def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"
 
         namespace["__init__"] = __init__
@@ -174,4 +174,4 @@ class OptimizedMutableSequenceMeta(ABCMeta):
         namespace["__delitem__"] = __delitem__
         namespace["__len__"] = __len__
         namespace["insert"] = insert
-        namespace["__str__"] = __str__
+        namespace["__repr__"] = __repr__
