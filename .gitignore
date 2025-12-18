@@ -2,3 +2,4 @@
 .mypy_cache/
 *.pyc
 opticol.egg-info/
+dist/

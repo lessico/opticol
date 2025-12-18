@@ -1,6 +1,6 @@
 [project]
 name = "opticol"
-version = "0.1.0"
+version = "0.1.0a1"
 description = "Implementations for the various Python Collection ABCs that optimize along various axes."
 readme = "README.md"
 requires-python = ">=3.12"
