@@ -63,7 +63,7 @@ def __init__(self, {",".join(item_slots)}):
         namespace["__iter__"] = __iter__
         namespace["__len__"] = __len__
         namespace["__repr__"] = __repr__
-        namespace["_from_iterable"] = _from_iterable
+        namespace["_from_iterable"] = classmethod(_from_iterable)
 
 
 class OptimizedMutableSetMeta(ABCMeta):
@@ -171,4 +171,4 @@ class OptimizedMutableSetMeta(ABCMeta):
         namespace["add"] = add
         namespace["discard"] = discard
         namespace["__repr__"] = __repr__
-        namespace["_from_iterable"] = _from_iterable
+        namespace["_from_iterable"] = classmethod(_from_iterable)
