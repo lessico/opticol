@@ -1,8 +1,8 @@
 from abc import ABCMeta
 from itertools import zip_longest
-from typing import Any, Callable
+from typing import Any
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from opticol._sentinel import END, Overflow
 
@@ -38,12 +38,13 @@ class OptimizedSequenceMeta(ABCMeta):
         internal_size: int,
         project: Callable[[list], Sequence],
     ) -> None:
-        if internal_size > 0:
-            init_ir = f"""
-def __init__(self, {",".join(item_slots)}):
-    {"\n    ".join(f"self.{slot} = {slot}" for slot in item_slots)}
-"""
-            exec(init_ir, namespace)
+        def __init__(self, seq):
+            sentinel = object()
+            for slot, v in zip_longest(item_slots, seq, fillvalue=sentinel):
+                if slot is sentinel or v is sentinel:
+                    raise ValueError(f"Expected provided iterator to have exactly {internal_size} elements.")
+
+                setattr(self, slot, v)
 
         def __getitem__(self, key):
             match key:
@@ -64,6 +65,7 @@ def __init__(self, {",".join(item_slots)}):
         def __repr__(self):
             return f"[{", ".join(repr(getattr(self, slot)) for slot in item_slots)}]"
 
+        namespace["__init__"] = __init__
         namespace["__getitem__"] = __getitem__
         namespace["__len__"] = __len__
         namespace["__repr__"] = __repr__
@@ -96,22 +98,21 @@ class OptimizedMutableSequenceMeta(ABCMeta):
         internal_size: int,
         project: Callable[[list], Sequence],
     ) -> None:
-        def _assign_list(self, l):
-            if len(l) > internal_size:
-                setattr(self, item_slots[0], Overflow(l))
+        def _assign(self, seq):
+            if len(seq) > internal_size:
+                setattr(self, item_slots[0], Overflow(seq))
                 for slot in item_slots[1:]:
                     setattr(self, slot, END)
             else:
                 sentinel = object()
-                for slot, v in zip_longest(item_slots, l, fillvalue=sentinel):
+                for slot, v in zip_longest(item_slots, seq, fillvalue=sentinel):
                     if v is sentinel:
                         setattr(self, slot, END)
                     else:
                         setattr(self, slot, v)
 
-        def __init__(self, it):
-            collected = it if isinstance(it, list) else list(it)
-            _assign_list(self, collected)
+        def __init__(self, seq):
+            _assign(self, seq)
 
         def __getitem__(self, key):
             first = getattr(self, item_slots[0])
@@ -142,12 +143,12 @@ class OptimizedMutableSequenceMeta(ABCMeta):
         def __setitem__(self, key, value):
             current = list(self)
             current[key] = value
-            _assign_list(self, current)
+            _assign(self, current)
 
         def __delitem__(self, key):
             current = list(self)
             del current[key]
-            _assign_list(self, current)
+            _assign(self, current)
 
         def __len__(self):
             first = getattr(self, item_slots[0])
@@ -165,7 +166,7 @@ class OptimizedMutableSequenceMeta(ABCMeta):
         def insert(self, index, value):
             current = list(self)
             current.insert(index, value)
-            _assign_list(self, current)
+            _assign(self, current)
 
         def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"

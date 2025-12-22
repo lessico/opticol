@@ -1,8 +1,8 @@
 from abc import ABCMeta
 from itertools import zip_longest
-from typing import Any, Callable
+from typing import Any
 
-from collections.abc import Sequence, Set
+from collections.abc import Callable, Sequence, Set
 
 from opticol._sentinel import END, Overflow
 
@@ -31,12 +31,13 @@ class OptimizedSetMeta(ABCMeta):
         internal_size: int,
         project: Callable[[set], Set],
     ) -> None:
-        if internal_size > 0:
-            init_ir = f"""
-def __init__(self, {",".join(item_slots)}):
-    {"\n    ".join(f"self.{slot} = {slot}" for slot in item_slots)}
-"""
-            exec(init_ir, namespace)
+        def __init__(self, s):
+            sentinel = object()
+            for slot, v in zip_longest(item_slots, s, fillvalue=sentinel):
+                if slot is sentinel or v is sentinel:
+                    raise ValueError(f"Expected provided iterator to have exactly {internal_size} elements.")
+
+                setattr(self, slot, v)
 
         def __contains__(self, value):
             for slot in item_slots:
@@ -59,6 +60,7 @@ def __init__(self, {",".join(item_slots)}):
         def _from_iterable(_, it):
             return project(set(it))
 
+        namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__
         namespace["__iter__"] = __iter__
         namespace["__len__"] = __len__
@@ -93,7 +95,7 @@ class OptimizedMutableSetMeta(ABCMeta):
         internal_size: int,
         project: Callable[[set], Set],
     ) -> None:
-        def _assign_set(self, s):
+        def _assign(self, s):
             if len(s) > internal_size:
                 setattr(self, item_slots[0], Overflow(s))
                 for slot in item_slots[1:]:
@@ -106,9 +108,8 @@ class OptimizedMutableSetMeta(ABCMeta):
                     else:
                         setattr(self, slot, v)
 
-        def __init__(self, it):
-            collected = it if isinstance(it, set) else set(it)
-            _assign_set(self, collected)
+        def __init__(self, s):
+            _assign(self, s)
 
         def __contains__(self, value):
             first = getattr(self, item_slots[0])
@@ -151,12 +152,12 @@ class OptimizedMutableSetMeta(ABCMeta):
         def add(self, value):
             current = set(self)
             current.add(value)
-            _assign_set(self, current)
+            _assign(self, current)
 
         def discard(self, value):
             current = set(self)
             current.discard(value)
-            _assign_set(self, current)
+            _assign(self, current)
 
         def __repr__(self):
             if len(self) == 0:

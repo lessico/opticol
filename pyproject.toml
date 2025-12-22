@@ -1,7 +1,7 @@
 [project]
 name = "opticol"
-version = "0.1.0a1"
-description = "Implementations for the various Python Collection ABCs that optimize along various axes."
+version = "0.1.0a2"
+description = "Memory optimized implementations for the main Python Collection ABCs."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = []

@@ -26,12 +26,13 @@ class OptimizedMappingMeta(ABCMeta):
         namespace: dict[str, Any],
         internal_size: int,
     ) -> None:
-        if internal_size > 0:
-            init_ir = f"""
-def __init__(self, {",".join(item_slots)}):
-    {"\n    ".join(f"self.{slot} = {slot}" for slot in item_slots)}
-"""
-            exec(init_ir, namespace)
+        def __init__(self, mapping):
+            sentinel = object()
+            for slot, t in zip_longest(item_slots, mapping.items(), fillvalue=sentinel):
+                if slot is sentinel or t is sentinel:
+                    raise ValueError(f"Expected provided iterator to have exactly {internal_size} elements.")
+
+                setattr(self, slot, t)
 
         def __getitem__(self, key):
             for slot in item_slots:
@@ -53,6 +54,7 @@ def __init__(self, {",".join(item_slots)}):
             ]
             return f"{{{", ".join(items)}}}"
 
+        namespace["__init__"] = __init__
         namespace["__getitem__"] = __getitem__
         namespace["__iter__"] = __iter__
         namespace["__len__"] = __len__
@@ -84,22 +86,21 @@ class OptimizedMutableMappingMeta(ABCMeta):
         namespace: dict[str, Any],
         internal_size: int,
     ) -> None:
-        def _assign_dict(self, d):
-            if len(d) > internal_size:
-                setattr(self, item_slots[0], d)
+        def _assign(self, mapping):
+            if len(mapping) > internal_size:
+                setattr(self, item_slots[0], mapping)
                 for slot in item_slots[1:]:
                     setattr(self, slot, None)
             else:
                 sentinel = object()
-                for pair, slot in zip_longest(d.items(), item_slots, fillvalue=sentinel):
+                for pair, slot in zip_longest(mapping.items(), item_slots, fillvalue=sentinel):
                     if pair is sentinel:
                         setattr(self, slot, None)
                     else:
                         setattr(self, slot, pair)
 
-        def __init__(self, it):
-            d = it if isinstance(it, dict) else dict(it)
-            _assign_dict(self, d)
+        def __init__(self, mapping):
+            _assign(self, mapping)
 
         def __getitem__(self, key):
             first = getattr(self, item_slots[0])
@@ -119,12 +120,12 @@ class OptimizedMutableMappingMeta(ABCMeta):
         def __setitem__(self, key, value):
             current = dict(self)
             current[key] = value
-            _assign_dict(self, current)
+            _assign(self, current)
 
         def __delitem__(self, key):
             current = dict(self)
             del current[key]
-            _assign_dict(self, current)
+            _assign(self, current)
 
         def __iter__(self):
             first = getattr(self, item_slots[0])

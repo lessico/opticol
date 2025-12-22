@@ -1,27 +1,14 @@
-__all__ = [
-    "mapping",
-    "mutable_mapping",
-    "mutable_sequence",
-    "mutable_set",
-    "projector",
-    "sequence",
-    "set",
-]
+__all__ = ["factories", "projector", "mapping", "mut_mapping", "mut_seq", "mut_set", "seq", "set"]
 
-from opticol import mutable_mapping, mutable_sequence, mutable_set, sequence
-from opticol import mapping as _mapping_module
-from opticol import set as _set_module
+from opticol.projector import DefaultProjector
 
-mapping = _mapping_module.project
-mut_mapping = mutable_mapping.project
-mut_seq = mutable_sequence.project
-mut_set = mutable_set.project
-seq = sequence.project
-set = _set_module.project
+_default = DefaultProjector()
 
-del _mapping_module
-del mutable_mapping
-del mutable_sequence
-del mutable_set
-del sequence
-del _set_module
+mapping = _default.mapping
+mut_mapping = _default.mut_mapping
+mut_seq = _default.mut_seq
+mut_set = _default.mut_set
+seq = _default.seq
+set = _default.set
+
+del DefaultProjector
