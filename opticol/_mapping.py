@@ -1,10 +1,11 @@
-from abc import ABCMeta
 from collections.abc import Sequence
 from itertools import zip_longest
 from typing import Any
 
+from opticol._meta import OptimizedCollectionMeta
 
-class OptimizedMappingMeta(ABCMeta):
+
+class OptimizedMappingMeta(OptimizedCollectionMeta):
     def __new__(
         mcs,
         name: str,
@@ -30,7 +31,9 @@ class OptimizedMappingMeta(ABCMeta):
             sentinel = object()
             for slot, t in zip_longest(item_slots, mapping.items(), fillvalue=sentinel):
                 if slot is sentinel or t is sentinel:
-                    raise ValueError(f"Expected provided iterator to have exactly {internal_size} elements.")
+                    raise ValueError(
+                        f"Expected provided iterator to have exactly {internal_size} elements."
+                    )
 
                 setattr(self, slot, t)
 
@@ -61,7 +64,7 @@ class OptimizedMappingMeta(ABCMeta):
         namespace["__repr__"] = __repr__
 
 
-class OptimizedMutableMappingMeta(ABCMeta):
+class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
     def __new__(
         mcs,
         name: str,

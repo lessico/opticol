@@ -14,9 +14,6 @@ from opticol._set import OptimizedMutableSetMeta, OptimizedSetMeta
 
 
 def create_seq_class(size: int, project: Callable[[Sequence], Sequence]) -> type:
-    # TODO: This class actually now needs to take an iterable to follow the
-    # principle of least surprise.
-    # TODO: Add unique suffix to the end of the class names to avoid conflict
     return OptimizedSequenceMeta(
         f"_Size{size}Sequence",
         (Sequence,),

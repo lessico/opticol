@@ -1,13 +1,13 @@
-from abc import ABCMeta
 from itertools import zip_longest
 from typing import Any
 
 from collections.abc import Callable, Sequence, Set
 
+from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
 
-class OptimizedSetMeta(ABCMeta):
+class OptimizedSetMeta(OptimizedCollectionMeta):
     def __new__(
         mcs,
         name: str,
@@ -35,7 +35,9 @@ class OptimizedSetMeta(ABCMeta):
             sentinel = object()
             for slot, v in zip_longest(item_slots, s, fillvalue=sentinel):
                 if slot is sentinel or v is sentinel:
-                    raise ValueError(f"Expected provided iterator to have exactly {internal_size} elements.")
+                    raise ValueError(
+                        f"Expected provided iterator to have exactly {internal_size} elements."
+                    )
 
                 setattr(self, slot, v)
 
@@ -68,7 +70,7 @@ class OptimizedSetMeta(ABCMeta):
         namespace["_from_iterable"] = classmethod(_from_iterable)
 
 
-class OptimizedMutableSetMeta(ABCMeta):
+class OptimizedMutableSetMeta(OptimizedCollectionMeta):
     def __new__(
         mcs,
         name: str,

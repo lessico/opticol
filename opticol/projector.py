@@ -10,9 +10,8 @@ from collections.abc import (
     Sequence,
     Set,
 )
-from typing import TypeVar
 
-from opticol.factories import (
+from opticol.factory import (
     create_mapping_class,
     create_mut_mapping_class,
     create_mut_seq_class,
@@ -60,7 +59,6 @@ class PassThroughProjector(ABC):
 
     def mut_mapping[K, V](self, mut_mapping: MutableMapping[K, V]) -> MutableMapping[K, V]:
         return mut_mapping
-
 
 
 class DefaultProjector(Projector):

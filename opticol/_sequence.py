@@ -1,9 +1,9 @@
-from abc import ABCMeta
 from itertools import zip_longest
 from typing import Any
 
 from collections.abc import Callable, Sequence
 
+from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
 
@@ -14,7 +14,7 @@ def _adjust_index(idx: int, length: int) -> int:
     return adjusted
 
 
-class OptimizedSequenceMeta(ABCMeta):
+class OptimizedSequenceMeta(OptimizedCollectionMeta):
     def __new__(
         mcs,
         name: str,
@@ -39,11 +39,13 @@ class OptimizedSequenceMeta(ABCMeta):
         project: Callable[[list], Sequence],
     ) -> None:
         def __init__(self, seq):
+            if len(seq) != internal_size:
+                raise ValueError(
+                    f"Expected provided iterator to have exactly {internal_size} elements but has {len(seq)}."
+                )
+
             sentinel = object()
             for slot, v in zip_longest(item_slots, seq, fillvalue=sentinel):
-                if slot is sentinel or v is sentinel:
-                    raise ValueError(f"Expected provided iterator to have exactly {internal_size} elements.")
-
                 setattr(self, slot, v)
 
         def __getitem__(self, key):
@@ -71,7 +73,7 @@ class OptimizedSequenceMeta(ABCMeta):
         namespace["__repr__"] = __repr__
 
 
-class OptimizedMutableSequenceMeta(ABCMeta):
+class OptimizedMutableSequenceMeta(OptimizedCollectionMeta):
     def __new__(
         mcs,
         name: str,
