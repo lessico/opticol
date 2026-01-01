@@ -6,6 +6,24 @@ from collections.abc import Callable, Sequence
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
+# TODO: For RO collection types, change so that ziplongest is not used, since
+# we are not projecting from an iterator.
+# TODO: Add slash at the end of the methods so that keywords are not allowed
+# TODO: Change DefaultProjector to SmallCollectionProjector and then allow for parameters of up to
+# what size optimizations are used up to (allows it to easily be composed by others in other strategies
+# or create in other ways).
+# TODO: Add documentation that projector is supposed to be a vocabulary type that should be used where
+# collection strategy should be pluggable.
+# TODO: Add default value for project so that users can more reliably use the class creation methods.
+
+# TODO: Consider if there is anyway to compose the projectors easily in authoring as well such as composable
+# allocators ideas and such.
+
+# TODO: Projection from iterators into the sequence types can also be optimized and is an area that can
+# be supported in the future via a *_from_iter method which in the default case materializes the view
+# in memory (or does throw a runtime exception so that it's not used inappropriately). The idea is that
+# this would optimize an iterable becoming a certain collection type.
+
 
 def _adjust_index(idx: int, length: int) -> int:
     adjusted = idx if idx >= 0 else length + idx
