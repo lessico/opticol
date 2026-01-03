@@ -1,5 +1,5 @@
 from itertools import zip_longest
-from typing import Any
+from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
@@ -15,7 +15,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[Set], Set]],
     ) -> type:
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
@@ -29,7 +29,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[Set], Set]],
     ) -> None:
         def __init__(self, s):
             if len(s) != internal_size:
@@ -58,15 +58,16 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
                 return "set()"
             return f"{{{", ".join(repr(getattr(self, slot)) for slot in item_slots)}}}"
 
-        def _from_iterable(_, it):
-            return project(set(it))
+        if project is not None:
+            def _from_iterable(_, it):
+                return project(set(it))
+            namespace["_from_iterable"] = classmethod(_from_iterable)
 
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__
         namespace["__iter__"] = __iter__
         namespace["__len__"] = __len__
         namespace["__repr__"] = __repr__
-        namespace["_from_iterable"] = classmethod(_from_iterable)
 
 
 class OptimizedMutableSetMeta(OptimizedCollectionMeta):
@@ -77,7 +78,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> type:
         if internal_size < 0:
             raise ValueError(f"{internal_size} is not a valid size for the MutableSet type.")
@@ -95,7 +96,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> None:
         def _assign(self, s):
             if len(s) > internal_size:
@@ -151,8 +152,10 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
                 return "set()"
             return f"{{{", ".join(repr(val) for val in self)}}}"
 
-        def _from_iterable(_, it):
-            return project(set(it))
+        if project is not None:
+            def _from_iterable(_, it):
+                return project(set(it))
+            namespace["_from_iterable"] = classmethod(_from_iterable)
 
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__
@@ -161,4 +164,3 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         namespace["add"] = add
         namespace["discard"] = discard
         namespace["__repr__"] = __repr__
-        namespace["_from_iterable"] = classmethod(_from_iterable)

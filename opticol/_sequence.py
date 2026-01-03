@@ -1,14 +1,14 @@
 from itertools import zip_longest
-from typing import Any
+from typing import Any, Optional
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, MutableSequence, Sequence
 
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
 # TODO: Add documentation that projector is supposed to be a vocabulary type that should be used where
 # collection strategy should be pluggable.
-# TODO: Add default value for project so that users can more reliably use the class creation methods.
+# TODO: Determine what to do about hashability on small sets.
 
 # TODO: Consider if there is anyway to compose the projectors easily in authoring as well such as composable
 # allocators ideas and such.
@@ -34,7 +34,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-        project: Callable[[list], Sequence],
+        project: Optional[Callable[[Sequence], Sequence]],
     ) -> type:
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
@@ -48,7 +48,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta):
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
-        project: Callable[[list], Sequence],
+        project: Optional[Callable[[Sequence], Sequence]],
     ) -> None:
         def __init__(self, seq):
             if len(seq) != internal_size:
@@ -66,7 +66,11 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta):
                     return getattr(self, item_slots[key])
                 case slice():
                     indices = range(*key.indices(len(self)))
-                    return project([self[i] for i in indices])
+                    base = [self[i] for i in indices]
+                    if project is None:
+                        return base
+
+                    return project(base)
                 case _:
                     raise TypeError(
                         f"Sequence accessors must be integers or slices, not {type(key)}"
@@ -92,7 +96,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-        project: Callable[[list], Sequence],
+        project: Optional[Callable[[MutableSequence], MutableSequence]],
     ) -> type:
         if internal_size < 0:
             raise ValueError(f"{internal_size} is not a valid size for the MutableSequence type.")
@@ -110,7 +114,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta):
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
-        project: Callable[[list], Sequence],
+        project: Optional[Callable[[MutableSequence], MutableSequence]],
     ) -> None:
         def _assign(self, seq):
             if len(seq) > internal_size:
@@ -144,11 +148,16 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta):
                     return v
                 case slice():
                     if overflowed:
-                        return project(first.data[key])
+                        base = first.data[key]
+                    else:
+                        indices = range(*key.indices(len(self)))
+                        first = getattr(self, item_slots[0])
+                        base = [self[i] for i in indices]
 
-                    indices = range(*key.indices(len(self)))
-                    first = getattr(self, item_slots[0])
-                    return project([self[i] for i in indices])
+                    if project is None:
+                        return base
+
+                    return project(base)
                 case _:
                     raise TypeError(
                         f"Sequence accessors must be integers or slices, not {type(key)}"
