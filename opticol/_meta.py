@@ -7,14 +7,14 @@ class OptimizedCollectionMeta(ABCMeta):
     _index = 0
 
     def __new__(
-        mcs,
+        cls,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
     ) -> type:
-        mcs._index += 1
-        formatted_name = f"{name}_{mcs._index}"
-        return super().__new__(mcs, formatted_name, bases, namespace)
+        OptimizedCollectionMeta._index += 1
+        formatted_name = f"{name}_{OptimizedCollectionMeta._index}"
+        return super().__new__(cls, formatted_name, bases, namespace)
 
     @staticmethod
     def _mut_len[O](

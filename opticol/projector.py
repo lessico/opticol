@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import (
     Callable,
-    Iterable,
     Sized,
     Mapping,
     MutableMapping,
@@ -61,38 +60,40 @@ class PassThroughProjector(ABC):
         return mut_mapping
 
 
-class DefaultProjector(Projector):
+class OptimizedCollectionProjector(Projector):
     @staticmethod
     def _create_sized_router[C: Sized](
-        sizes: Iterable[int], cls_factory: Callable[[int], type]
+        min_size: int, max_size: int, cls_factory: Callable[[int], type]
     ) -> Callable[[C], C]:
-        classes = [cls_factory(i) for i in sizes]
+        classes = [cls_factory(size) for size in range(min_size, max_size + 1)]
 
         def router(collection: C) -> C:
-            if len(collection) > len(classes):
+            l = len(collection)
+            if l < min_size or l > max_size:
                 return collection
 
-            cls = classes[len(collection)]
-            return cls(collection)
+            klass = classes[len(collection) - min_size]
+            return klass(collection)
 
         return router
 
-    def __init__(self) -> None:
-        ro = list(range(4))
-        rw = [1, 1, 2, 3]
-
-        self._seq = self._create_sized_router(ro, lambda i: create_seq_class(i, self.seq))
+    def __init__(self, *, min_size: int = 0, max_size: int = 3) -> None:
+        self._seq = self._create_sized_router(
+            min_size, max_size, lambda i: create_seq_class(i, self.seq)
+        )
         self._mut_seq = self._create_sized_router(
-            rw, lambda i: create_mut_seq_class(i, self.mut_seq)
+            min_size, max_size, lambda i: create_mut_seq_class(i, self.mut_seq)
         )
 
-        self._set = self._create_sized_router(ro, lambda i: create_set_class(i, self.set))
+        self._set = self._create_sized_router(
+            min_size, max_size, lambda i: create_set_class(i, self.set)
+        )
         self._mut_set = self._create_sized_router(
-            rw, lambda i: create_mut_set_class(i, self.mut_set)
+            min_size, max_size, lambda i: create_mut_set_class(i, self.mut_set)
         )
 
-        self._mapping = self._create_sized_router(ro, create_mapping_class)
-        self._mut_mapping = self._create_sized_router(rw, create_mut_mapping_class)
+        self._mapping = self._create_sized_router(min_size, max_size, create_mapping_class)
+        self._mut_mapping = self._create_sized_router(min_size, max_size, create_mut_mapping_class)
 
     def seq[T](self, seq: Sequence[T], /) -> Sequence[T]:
         return self._seq(seq)

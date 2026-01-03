@@ -29,13 +29,12 @@ class OptimizedMappingMeta(OptimizedCollectionMeta):
         internal_size: int,
     ) -> None:
         def __init__(self, mapping):
-            sentinel = object()
-            for slot, t in zip_longest(item_slots, mapping.items(), fillvalue=sentinel):
-                if slot is sentinel or t is sentinel:
-                    raise ValueError(
-                        f"Expected provided iterator to have exactly {internal_size} elements."
-                    )
+            if len(mapping) != internal_size:
+                raise ValueError(
+                    f"Expected provided Mapping to have exactly {internal_size} elements but it has {len(mapping)}."
+                )
 
+            for slot, t in zip(item_slots, mapping.items(), strict=True):
                 setattr(self, slot, t)
 
         def __getitem__(self, key):
@@ -74,8 +73,9 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
         *,
         internal_size: int,
     ) -> type:
-        if internal_size <= 0:
+        if internal_size < 0:
             raise ValueError(f"{internal_size} is not a valid size for the MutableMapping type.")
+        internal_size = internal_size or 1
 
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots

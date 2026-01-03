@@ -12,6 +12,8 @@ from opticol._mapping import OptimizedMappingMeta, OptimizedMutableMappingMeta
 from opticol._sequence import OptimizedMutableSequenceMeta, OptimizedSequenceMeta
 from opticol._set import OptimizedMutableSetMeta, OptimizedSetMeta
 
+# TODO: This needs a class registry to avoid unnecessary duplication of class creations.
+
 
 def create_seq_class(size: int, project: Callable[[Sequence], Sequence]) -> type:
     return OptimizedSequenceMeta(

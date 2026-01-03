@@ -1,16 +1,11 @@
 from itertools import zip_longest
 from typing import Any
 
-from collections.abc import Callable, MutableSequence, Sequence
+from collections.abc import Callable, Sequence
 
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
-# TODO: For RO collection types, change so that ziplongest is not used, since
-# we are not projecting from an iterator.
-# TODO: Change DefaultProjector to SmallCollectionProjector and then allow for parameters of up to
-# what size optimizations are used up to (allows it to easily be composed by others in other strategies
-# or create in other ways).
 # TODO: Add documentation that projector is supposed to be a vocabulary type that should be used where
 # collection strategy should be pluggable.
 # TODO: Add default value for project so that users can more reliably use the class creation methods.
@@ -58,11 +53,10 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta):
         def __init__(self, seq):
             if len(seq) != internal_size:
                 raise ValueError(
-                    f"Expected provided iterator to have exactly {internal_size} elements but has {len(seq)}."
+                    f"Expected provided Sequence to have exactly {internal_size} elements but it has {len(seq)}."
                 )
 
-            sentinel = object()
-            for slot, v in zip_longest(item_slots, seq, fillvalue=sentinel):
+            for slot, v in zip(item_slots, seq, strict=True):
                 setattr(self, slot, v)
 
         def __getitem__(self, key):
@@ -100,8 +94,9 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta):
         internal_size: int,
         project: Callable[[list], Sequence],
     ) -> type:
-        if internal_size <= 0:
+        if internal_size < 0:
             raise ValueError(f"{internal_size} is not a valid size for the MutableSequence type.")
+        internal_size = internal_size or 1
 
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots

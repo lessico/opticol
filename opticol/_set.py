@@ -32,13 +32,12 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         project: Callable[[set], Set],
     ) -> None:
         def __init__(self, s):
-            sentinel = object()
-            for slot, v in zip_longest(item_slots, s, fillvalue=sentinel):
-                if slot is sentinel or v is sentinel:
-                    raise ValueError(
-                        f"Expected provided iterator to have exactly {internal_size} elements."
-                    )
+            if len(s) != internal_size:
+                raise ValueError(
+                    f"Expected provided Set to have exactly {internal_size} elements but it has {len(s)}."
+                )
 
+            for slot, v in zip(item_slots, s, strict=True):
                 setattr(self, slot, v)
 
         def __contains__(self, value):
@@ -80,8 +79,9 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         internal_size: int,
         project: Callable[[set], Set],
     ) -> type:
-        if internal_size <= 0:
+        if internal_size < 0:
             raise ValueError(f"{internal_size} is not a valid size for the MutableSet type.")
+        internal_size = internal_size or 1
 
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
