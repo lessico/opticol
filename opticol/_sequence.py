@@ -8,7 +8,6 @@ from opticol._sentinel import END, Overflow
 
 # TODO: Add documentation that projector is supposed to be a vocabulary type that should be used where
 # collection strategy should be pluggable.
-# TODO: Determine what to do about hashability on small sets.
 
 # TODO: Consider if there is anyway to compose the projectors easily in authoring as well such as composable
 # allocators ideas and such.
