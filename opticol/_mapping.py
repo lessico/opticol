@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from itertools import zip_longest
+import operator
 from typing import Any
 
 from opticol._meta import OptimizedCollectionMeta
@@ -131,30 +132,12 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
             _assign(self, current)
 
         def __iter__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, dict):
-                yield from first
-                return
-
-            for slot in item_slots:
-                item = getattr(self, slot)
-                if item is None:
-                    return
-
-                yield item[0]
+            yield from OptimizedCollectionMeta._mut_iter(
+                self, item_slots, dict, lambda d: d, None, operator.itemgetter(0)
+            )
 
         def __len__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, dict):
-                return len(first)
-
-            count = 0
-            for slot in item_slots:
-                if getattr(self, slot) is None:
-                    break
-                count += 1
-
-            return count
+            return OptimizedCollectionMeta._mut_len(self, item_slots, dict, lambda d: d, None)
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]

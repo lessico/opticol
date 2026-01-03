@@ -1,7 +1,7 @@
 from itertools import zip_longest
 from typing import Any
 
-from collections.abc import Callable, Sequence, Set
+from collections.abc import Callable, MutableSet, Sequence, Set
 
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
@@ -127,29 +127,14 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
             return False
 
         def __iter__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, Overflow):
-                yield from first.data
-                return
-
-            for slot in item_slots:
-                v = getattr(self, slot)
-                if v is END:
-                    break
-                yield v
+            yield from OptimizedCollectionMeta._mut_iter(
+                self, item_slots, Overflow, lambda o: o.data, END, lambda v: v
+            )
 
         def __len__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, Overflow):
-                return len(first.data)
-
-            count = 0
-            for slot in item_slots:
-                if getattr(self, slot) is END:
-                    break
-                count += 1
-
-            return count
+            return OptimizedCollectionMeta._mut_len(
+                self, item_slots, Overflow, lambda o: len(o.data), END
+            )
 
         def add(self, value):
             current = set(self)

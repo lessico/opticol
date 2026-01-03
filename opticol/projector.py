@@ -23,41 +23,41 @@ from opticol.factory import (
 
 class Projector(ABC):
     @abstractmethod
-    def seq[T](self, seq: Sequence[T]) -> Sequence[T]: ...
+    def seq[T](self, seq: Sequence[T], /) -> Sequence[T]: ...
 
     @abstractmethod
-    def mut_seq[T](self, mut_seq: MutableSequence[T]) -> MutableSequence[T]: ...
+    def mut_seq[T](self, mut_seq: MutableSequence[T], /) -> MutableSequence[T]: ...
 
     @abstractmethod
-    def set[T](self, s: Set[T]) -> Set[T]: ...
+    def set[T](self, s: Set[T], /) -> Set[T]: ...
 
     @abstractmethod
-    def mut_set[T](self, mut_set: MutableSet[T]) -> MutableSet[T]: ...
+    def mut_set[T](self, mut_set: MutableSet[T], /) -> MutableSet[T]: ...
 
     @abstractmethod
-    def mapping[K, V](self, mapping: Mapping[K, V]) -> Mapping[K, V]: ...
+    def mapping[K, V](self, mapping: Mapping[K, V], /) -> Mapping[K, V]: ...
 
     @abstractmethod
-    def mut_mapping[K, V](self, mut_mapping: MutableMapping[K, V]) -> MutableMapping[K, V]: ...
+    def mut_mapping[K, V](self, mut_mapping: MutableMapping[K, V], /) -> MutableMapping[K, V]: ...
 
 
 class PassThroughProjector(ABC):
-    def seq[T](self, seq: Sequence[T]) -> Sequence[T]:
+    def seq[T](self, seq: Sequence[T], /) -> Sequence[T]:
         return seq
 
-    def mut_seq[T](self, mut_seq: MutableSequence[T]) -> MutableSequence[T]:
+    def mut_seq[T](self, mut_seq: MutableSequence[T], /) -> MutableSequence[T]:
         return mut_seq
 
-    def set[T](self, s: Set[T]) -> Set[T]:
+    def set[T](self, s: Set[T], /) -> Set[T]:
         return s
 
-    def mut_set[T](self, mut_set: MutableSet[T]) -> MutableSet[T]:
+    def mut_set[T](self, mut_set: MutableSet[T], /) -> MutableSet[T]:
         return mut_set
 
-    def mapping[K, V](self, mapping: Mapping[K, V]) -> Mapping[K, V]:
+    def mapping[K, V](self, mapping: Mapping[K, V], /) -> Mapping[K, V]:
         return mapping
 
-    def mut_mapping[K, V](self, mut_mapping: MutableMapping[K, V]) -> MutableMapping[K, V]:
+    def mut_mapping[K, V](self, mut_mapping: MutableMapping[K, V], /) -> MutableMapping[K, V]:
         return mut_mapping
 
 
@@ -94,20 +94,20 @@ class DefaultProjector(Projector):
         self._mapping = self._create_sized_router(ro, create_mapping_class)
         self._mut_mapping = self._create_sized_router(rw, create_mut_mapping_class)
 
-    def seq[T](self, seq: Sequence[T]) -> Sequence[T]:
+    def seq[T](self, seq: Sequence[T], /) -> Sequence[T]:
         return self._seq(seq)
 
-    def mut_seq[T](self, mut_seq: MutableSequence[T]) -> MutableSequence[T]:
+    def mut_seq[T](self, mut_seq: MutableSequence[T], /) -> MutableSequence[T]:
         return self._mut_seq(mut_seq)
 
-    def set[T](self, s: Set[T]) -> Set[T]:
+    def set[T](self, s: Set[T], /) -> Set[T]:
         return self._set(s)
 
-    def mut_set[T](self, mut_set: MutableSet[T]) -> MutableSet[T]:
+    def mut_set[T](self, mut_set: MutableSet[T], /) -> MutableSet[T]:
         return self._mut_set(mut_set)
 
-    def mapping[K, V](self, mapping: Mapping[K, V]) -> Mapping[K, V]:
+    def mapping[K, V](self, mapping: Mapping[K, V], /) -> Mapping[K, V]:
         return self._mapping(mapping)
 
-    def mut_mapping[K, V](self, mut_mapping: MutableMapping[K, V]) -> MutableMapping[K, V]:
+    def mut_mapping[K, V](self, mut_mapping: MutableMapping[K, V], /) -> MutableMapping[K, V]:
         return self._mut_mapping(mut_mapping)

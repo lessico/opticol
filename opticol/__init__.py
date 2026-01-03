@@ -1,4 +1,4 @@
-__all__ = ["factories", "projector", "mapping", "mut_mapping", "mut_seq", "mut_set", "seq", "set"]
+__all__ = ["factory", "projector", "mapping", "mut_mapping", "mut_seq", "mut_set", "seq", "set"]
 
 from opticol.projector import DefaultProjector
 
