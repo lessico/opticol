@@ -1,20 +1,42 @@
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
-from typing import Any
+from typing import Any, Optional
 
 
-class OptimizedCollectionMeta(ABCMeta):
+class OptimizedCollectionMeta[C](ABCMeta):
     _index = 0
 
     def __new__(
-        cls,
+        mcs,
         name: str,
         bases: tuple[type, ...],
         namespace: dict[str, Any],
+        *,
+        internal_size: int,
+        project: Optional[Callable[[C], C]],
+        collection_name: str,
     ) -> type:
         OptimizedCollectionMeta._index += 1
         formatted_name = f"{name}_{OptimizedCollectionMeta._index}"
-        return super().__new__(cls, formatted_name, bases, namespace)
+
+        if internal_size < 0:
+            raise ValueError(f"{internal_size} is not a valid size for the {collection_name} type.")
+
+        slots = tuple(f"_item{i}" for i in range(internal_size))
+        namespace["__slots__"] = slots
+
+        mcs.add_methods(slots, namespace, internal_size, project)
+
+        return super().__new__(mcs, formatted_name, bases, namespace)
+
+    @staticmethod
+    @abstractmethod
+    def add_methods(
+        slots: Sequence[str],
+        namespace: dict[str, Any],
+        internal_size: int,
+        project: Optional[Callable[[C], C]],
+    ): ...
 
     @staticmethod
     def _mut_len[O](

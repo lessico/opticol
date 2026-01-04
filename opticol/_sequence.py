@@ -25,7 +25,7 @@ def _adjust_index(idx: int, length: int) -> int:
     return adjusted
 
 
-class OptimizedSequenceMeta(OptimizedCollectionMeta):
+class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
     def __new__(
         mcs,
         name: str,
@@ -35,15 +35,18 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta):
         internal_size: int,
         project: Optional[Callable[[Sequence], Sequence]],
     ) -> type:
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size, project)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size,
+            project=project,
+            collection_name="Sequence",
+        )
 
     @staticmethod
-    def _add_methods(
+    def add_methods(
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
@@ -87,7 +90,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta):
         namespace["__repr__"] = __repr__
 
 
-class OptimizedMutableSequenceMeta(OptimizedCollectionMeta):
+class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
     def __new__(
         mcs,
         name: str,
@@ -97,19 +100,18 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta):
         internal_size: int,
         project: Optional[Callable[[MutableSequence], MutableSequence]],
     ) -> type:
-        if internal_size < 0:
-            raise ValueError(f"{internal_size} is not a valid size for the MutableSequence type.")
-        internal_size = internal_size or 1
-
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size, project)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size or 1,
+            project=project,
+            collection_name="MutableSequence",
+        )
 
     @staticmethod
-    def _add_methods(
+    def add_methods(
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,

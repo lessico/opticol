@@ -1,12 +1,12 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from itertools import zip_longest
 import operator
-from typing import Any
+from typing import Any, Optional
 
 from opticol._meta import OptimizedCollectionMeta
 
 
-class OptimizedMappingMeta(OptimizedCollectionMeta):
+class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
     def __new__(
         mcs,
         name: str,
@@ -15,23 +15,28 @@ class OptimizedMappingMeta(OptimizedCollectionMeta):
         *,
         internal_size: int,
     ) -> type:
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size,
+            project=None,
+            collection_name="Mapping",
+        )
 
     @staticmethod
-    def _add_methods(
+    def add_methods(
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
+        _: Optional[Callable[[Mapping], Mapping]],
     ) -> None:
         def __init__(self, mapping):
             if len(mapping) != internal_size:
                 raise ValueError(
-                    f"Expected provided Mapping to have exactly {internal_size} elements but it has {len(mapping)}."
+                    f"Expected provided Mapping to have exactly {internal_size} elements but it "
+                    f"has {len(mapping)}."
                 )
 
             for slot, t in zip(item_slots, mapping.items(), strict=True):
@@ -64,7 +69,7 @@ class OptimizedMappingMeta(OptimizedCollectionMeta):
         namespace["__repr__"] = __repr__
 
 
-class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
+class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
     def __new__(
         mcs,
         name: str,
@@ -73,22 +78,22 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
         *,
         internal_size: int,
     ) -> type:
-        if internal_size < 0:
-            raise ValueError(f"{internal_size} is not a valid size for the MutableMapping type.")
-        internal_size = internal_size or 1
-
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size or 1,
+            project=None,
+            collection_name="MutableMapping",
+        )
 
     @staticmethod
-    def _add_methods(
+    def add_methods(
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
+        _: Optional[Callable[[Mapping], Mapping]],
     ) -> None:
         def _assign(self, mapping):
             if len(mapping) > internal_size:

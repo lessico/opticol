@@ -14,6 +14,7 @@ from opticol._mapping import OptimizedMappingMeta, OptimizedMutableMappingMeta
 from opticol._sequence import OptimizedMutableSequenceMeta, OptimizedSequenceMeta
 from opticol._set import OptimizedMutableSetMeta, OptimizedSetMeta
 
+
 def cached(func):
     cache = {}
 
@@ -44,7 +45,9 @@ def create_seq_class(size: int, project: Optional[Callable[[Sequence], Sequence]
 
 
 @cached
-def create_mut_seq_class(size: int, project: Optional[Callable[[MutableSequence], MutableSequence]]) -> type:
+def create_mut_seq_class(
+    size: int, project: Optional[Callable[[MutableSequence], MutableSequence]]
+) -> type:
     return OptimizedMutableSequenceMeta(
         f"_Size{size}MutableSequence",
         (MutableSequence,),
@@ -60,7 +63,9 @@ def create_set_class(size: int, project: Optional[Callable[[Set], Set]] = None) 
 
 
 @cached
-def create_mut_set_class(size: int, project: Optional[Callable[[MutableSet], MutableSet]] = None) -> type:
+def create_mut_set_class(
+    size: int, project: Optional[Callable[[MutableSet], MutableSet]] = None
+) -> type:
     return OptimizedMutableSetMeta(
         f"_Size{size}MutableSet",
         (MutableSet,),
