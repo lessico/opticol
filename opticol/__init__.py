@@ -1,8 +1,8 @@
-__all__ = ["factories", "projector", "mapping", "mut_mapping", "mut_seq", "mut_set", "seq", "set"]
+__all__ = ["factory", "projector", "mapping", "mut_mapping", "mut_seq", "mut_set", "seq", "set"]
 
-from opticol.projector import DefaultProjector
+from opticol.projector import OptimizedCollectionProjector
 
-_default = DefaultProjector()
+_default = OptimizedCollectionProjector()
 
 mapping = _default.mapping
 mut_mapping = _default.mut_mapping
@@ -11,4 +11,4 @@ mut_set = _default.mut_set
 seq = _default.seq
 set = _default.set
 
-del DefaultProjector
+del OptimizedCollectionProjector

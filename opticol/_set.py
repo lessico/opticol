@@ -1,7 +1,7 @@
 from itertools import zip_longest
-from typing import Any
+from typing import Any, Optional
 
-from collections.abc import Callable, Sequence, Set
+from collections.abc import Callable, MutableSet, Sequence, Set
 
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
@@ -15,7 +15,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[Set], Set]],
     ) -> type:
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
@@ -29,16 +29,15 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[Set], Set]],
     ) -> None:
         def __init__(self, s):
-            sentinel = object()
-            for slot, v in zip_longest(item_slots, s, fillvalue=sentinel):
-                if slot is sentinel or v is sentinel:
-                    raise ValueError(
-                        f"Expected provided iterator to have exactly {internal_size} elements."
-                    )
+            if len(s) != internal_size:
+                raise ValueError(
+                    f"Expected provided Set to have exactly {internal_size} elements but it has {len(s)}."
+                )
 
+            for slot, v in zip(item_slots, s, strict=True):
                 setattr(self, slot, v)
 
         def __contains__(self, value):
@@ -59,15 +58,16 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
                 return "set()"
             return f"{{{", ".join(repr(getattr(self, slot)) for slot in item_slots)}}}"
 
-        def _from_iterable(_, it):
-            return project(set(it))
+        if project is not None:
+            def _from_iterable(_, it):
+                return project(set(it))
+            namespace["_from_iterable"] = classmethod(_from_iterable)
 
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__
         namespace["__iter__"] = __iter__
         namespace["__len__"] = __len__
         namespace["__repr__"] = __repr__
-        namespace["_from_iterable"] = classmethod(_from_iterable)
 
 
 class OptimizedMutableSetMeta(OptimizedCollectionMeta):
@@ -78,10 +78,11 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> type:
-        if internal_size <= 0:
+        if internal_size < 0:
             raise ValueError(f"{internal_size} is not a valid size for the MutableSet type.")
+        internal_size = internal_size or 1
 
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
@@ -95,7 +96,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         item_slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
-        project: Callable[[set], Set],
+        project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> None:
         def _assign(self, s):
             if len(s) > internal_size:
@@ -127,29 +128,14 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
             return False
 
         def __iter__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, Overflow):
-                yield from first.data
-                return
-
-            for slot in item_slots:
-                v = getattr(self, slot)
-                if v is END:
-                    break
-                yield v
+            yield from OptimizedCollectionMeta._mut_iter(
+                self, item_slots, Overflow, lambda o: o.data, END, lambda v: v
+            )
 
         def __len__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, Overflow):
-                return len(first.data)
-
-            count = 0
-            for slot in item_slots:
-                if getattr(self, slot) is END:
-                    break
-                count += 1
-
-            return count
+            return OptimizedCollectionMeta._mut_len(
+                self, item_slots, Overflow, lambda o: len(o.data), END
+            )
 
         def add(self, value):
             current = set(self)
@@ -166,8 +152,10 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
                 return "set()"
             return f"{{{", ".join(repr(val) for val in self)}}}"
 
-        def _from_iterable(_, it):
-            return project(set(it))
+        if project is not None:
+            def _from_iterable(_, it):
+                return project(set(it))
+            namespace["_from_iterable"] = classmethod(_from_iterable)
 
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__
@@ -176,4 +164,3 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         namespace["add"] = add
         namespace["discard"] = discard
         namespace["__repr__"] = __repr__
-        namespace["_from_iterable"] = classmethod(_from_iterable)

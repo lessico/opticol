@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from itertools import zip_longest
+import operator
 from typing import Any
 
 from opticol._meta import OptimizedCollectionMeta
@@ -28,13 +29,12 @@ class OptimizedMappingMeta(OptimizedCollectionMeta):
         internal_size: int,
     ) -> None:
         def __init__(self, mapping):
-            sentinel = object()
-            for slot, t in zip_longest(item_slots, mapping.items(), fillvalue=sentinel):
-                if slot is sentinel or t is sentinel:
-                    raise ValueError(
-                        f"Expected provided iterator to have exactly {internal_size} elements."
-                    )
+            if len(mapping) != internal_size:
+                raise ValueError(
+                    f"Expected provided Mapping to have exactly {internal_size} elements but it has {len(mapping)}."
+                )
 
+            for slot, t in zip(item_slots, mapping.items(), strict=True):
                 setattr(self, slot, t)
 
         def __getitem__(self, key):
@@ -73,8 +73,9 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
         *,
         internal_size: int,
     ) -> type:
-        if internal_size <= 0:
+        if internal_size < 0:
             raise ValueError(f"{internal_size} is not a valid size for the MutableMapping type.")
+        internal_size = internal_size or 1
 
         slots = tuple(f"_item{i}" for i in range(internal_size))
         namespace["__slots__"] = slots
@@ -131,30 +132,12 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
             _assign(self, current)
 
         def __iter__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, dict):
-                yield from first
-                return
-
-            for slot in item_slots:
-                item = getattr(self, slot)
-                if item is None:
-                    return
-
-                yield item[0]
+            yield from OptimizedCollectionMeta._mut_iter(
+                self, item_slots, dict, lambda d: d, None, operator.itemgetter(0)
+            )
 
         def __len__(self):
-            first = getattr(self, item_slots[0])
-            if isinstance(first, dict):
-                return len(first)
-
-            count = 0
-            for slot in item_slots:
-                if getattr(self, slot) is None:
-                    break
-                count += 1
-
-            return count
+            return OptimizedCollectionMeta._mut_len(self, item_slots, dict, lambda d: d, None)
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]
