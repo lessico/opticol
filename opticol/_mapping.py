@@ -27,7 +27,7 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
 
     @staticmethod
     def add_methods(
-        item_slots: Sequence[str],
+        slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
         _: Optional[Callable[[Mapping], Mapping]],
@@ -39,26 +39,25 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
                     f"has {len(mapping)}."
                 )
 
-            for slot, t in zip(item_slots, mapping.items(), strict=True):
+            for slot, t in zip(slots, mapping.items(), strict=True):
                 setattr(self, slot, t)
 
         def __getitem__(self, key):
-            for slot in item_slots:
+            for slot in slots:
                 item = getattr(self, slot)
                 if item[0] == key:
                     return item[1]
             raise KeyError(key)
 
         def __iter__(self):
-            yield from (getattr(self, slot)[0] for slot in item_slots)
+            yield from (getattr(self, slot)[0] for slot in slots)
 
         def __len__(_):
             return internal_size
 
         def __repr__(self):
             items = [
-                f"{repr(getattr(self, slot)[0])}: {repr(getattr(self, slot)[1])}"
-                for slot in item_slots
+                f"{repr(getattr(self, slot)[0])}: {repr(getattr(self, slot)[1])}" for slot in slots
             ]
             return f"{{{", ".join(items)}}}"
 
@@ -90,19 +89,19 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
 
     @staticmethod
     def add_methods(
-        item_slots: Sequence[str],
+        slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
-        _: Optional[Callable[[Mapping], Mapping]],
+        _: Optional[Callable[[MutableMapping], MutableMapping]],
     ) -> None:
         def _assign(self, mapping):
             if len(mapping) > internal_size:
-                setattr(self, item_slots[0], mapping)
-                for slot in item_slots[1:]:
+                setattr(self, slots[0], mapping)
+                for slot in slots[1:]:
                     setattr(self, slot, None)
             else:
                 sentinel = object()
-                for pair, slot in zip_longest(mapping.items(), item_slots, fillvalue=sentinel):
+                for pair, slot in zip_longest(mapping.items(), slots, fillvalue=sentinel):
                     if pair is sentinel:
                         setattr(self, slot, None)
                     else:
@@ -112,11 +111,11 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
             _assign(self, mapping)
 
         def __getitem__(self, key):
-            first = getattr(self, item_slots[0])
+            first = getattr(self, slots[0])
             if isinstance(first, dict):
                 return first[key]
 
-            for slot in item_slots:
+            for slot in slots:
                 item = getattr(self, slot)
                 if item is None:
                     break
@@ -138,11 +137,11 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
 
         def __iter__(self):
             yield from OptimizedCollectionMeta._mut_iter(
-                self, item_slots, dict, lambda d: d, None, operator.itemgetter(0)
+                self, slots, dict, lambda d: d, None, operator.itemgetter(0)
             )
 
         def __len__(self):
-            return OptimizedCollectionMeta._mut_len(self, item_slots, dict, lambda d: d, None)
+            return OptimizedCollectionMeta._mut_len(self, slots, dict, lambda d: d, None)
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]

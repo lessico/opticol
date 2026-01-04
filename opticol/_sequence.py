@@ -6,17 +6,6 @@ from collections.abc import Callable, MutableSequence, Sequence
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
-# TODO: Add documentation that projector is supposed to be a vocabulary type that should be used where
-# collection strategy should be pluggable.
-
-# TODO: Consider if there is anyway to compose the projectors easily in authoring as well such as composable
-# allocators ideas and such.
-
-# TODO: Projection from iterators into the sequence types can also be optimized and is an area that can
-# be supported in the future via a *_from_iter method which in the default case materializes the view
-# in memory (or does throw a runtime exception so that it's not used inappropriately). The idea is that
-# this would optimize an iterable becoming a certain collection type.
-
 
 def _adjust_index(idx: int, length: int) -> int:
     adjusted = idx if idx >= 0 else length + idx
@@ -47,7 +36,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
 
     @staticmethod
     def add_methods(
-        item_slots: Sequence[str],
+        slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
         project: Optional[Callable[[Sequence], Sequence]],
@@ -55,17 +44,18 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
         def __init__(self, seq):
             if len(seq) != internal_size:
                 raise ValueError(
-                    f"Expected provided Sequence to have exactly {internal_size} elements but it has {len(seq)}."
+                    f"Expected provided Sequence to have exactly {internal_size} elements but it "
+                    f"has {len(seq)}."
                 )
 
-            for slot, v in zip(item_slots, seq, strict=True):
+            for slot, v in zip(slots, seq, strict=True):
                 setattr(self, slot, v)
 
         def __getitem__(self, key):
             match key:
                 case int():
                     key = _adjust_index(key, len(self))
-                    return getattr(self, item_slots[key])
+                    return getattr(self, slots[key])
                 case slice():
                     indices = range(*key.indices(len(self)))
                     base = [self[i] for i in indices]
@@ -82,7 +72,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
             return internal_size
 
         def __repr__(self):
-            return f"[{", ".join(repr(getattr(self, slot)) for slot in item_slots)}]"
+            return f"[{", ".join(repr(getattr(self, slot)) for slot in slots)}]"
 
         namespace["__init__"] = __init__
         namespace["__getitem__"] = __getitem__
@@ -112,19 +102,19 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
 
     @staticmethod
     def add_methods(
-        item_slots: Sequence[str],
+        slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
         project: Optional[Callable[[MutableSequence], MutableSequence]],
     ) -> None:
         def _assign(self, seq):
             if len(seq) > internal_size:
-                setattr(self, item_slots[0], Overflow(seq))
-                for slot in item_slots[1:]:
+                setattr(self, slots[0], Overflow(seq))
+                for slot in slots[1:]:
                     setattr(self, slot, END)
             else:
                 sentinel = object()
-                for slot, v in zip_longest(item_slots, seq, fillvalue=sentinel):
+                for slot, v in zip_longest(slots, seq, fillvalue=sentinel):
                     if v is sentinel:
                         setattr(self, slot, END)
                     else:
@@ -134,7 +124,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
             _assign(self, seq)
 
         def __getitem__(self, key):
-            first = getattr(self, item_slots[0])
+            first = getattr(self, slots[0])
             overflowed = isinstance(first, Overflow)
 
             match key:
@@ -143,7 +133,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                         return first.data[key]
 
                     key = _adjust_index(key, len(self))
-                    v = getattr(self, item_slots[key])
+                    v = getattr(self, slots[key])
                     if v is END:
                         raise IndexError(f"{key} is outside of the expected bounds.")
                     return v
@@ -152,7 +142,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                         base = first.data[key]
                     else:
                         indices = range(*key.indices(len(self)))
-                        first = getattr(self, item_slots[0])
+                        first = getattr(self, slots[0])
                         base = [self[i] for i in indices]
 
                     if project is None:
@@ -176,7 +166,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
 
         def __len__(self):
             return OptimizedCollectionMeta._mut_len(
-                self, item_slots, Overflow, lambda o: len(o.data), END
+                self, slots, Overflow, lambda o: len(o.data), END
             )
 
         def insert(self, index, value):

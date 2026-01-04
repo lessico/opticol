@@ -29,7 +29,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
 
     @staticmethod
     def add_methods(
-        item_slots: Sequence[str],
+        slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
         project: Optional[Callable[[Set], Set]],
@@ -37,20 +37,21 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
         def __init__(self, s):
             if len(s) != internal_size:
                 raise ValueError(
-                    f"Expected provided Set to have exactly {internal_size} elements but it has {len(s)}."
+                    f"Expected provided Set to have exactly {internal_size} elements but it has "
+                    f"{len(s)}."
                 )
 
-            for slot, v in zip(item_slots, s, strict=True):
+            for slot, v in zip(slots, s, strict=True):
                 setattr(self, slot, v)
 
         def __contains__(self, value):
-            for slot in item_slots:
+            for slot in slots:
                 if getattr(self, slot) == value:
                     return True
             return False
 
         def __iter__(self):
-            for slot in item_slots:
+            for slot in slots:
                 yield getattr(self, slot)
 
         def __len__(_):
@@ -59,7 +60,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
         def __repr__(self):
             if internal_size == 0:
                 return "set()"
-            return f"{{{", ".join(repr(getattr(self, slot)) for slot in item_slots)}}}"
+            return f"{{{", ".join(repr(getattr(self, slot)) for slot in slots)}}}"
 
         if project is not None:
 
@@ -97,19 +98,19 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
 
     @staticmethod
     def add_methods(
-        item_slots: Sequence[str],
+        slots: Sequence[str],
         namespace: dict[str, Any],
         internal_size: int,
         project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> None:
         def _assign(self, s):
             if len(s) > internal_size:
-                setattr(self, item_slots[0], Overflow(s))
-                for slot in item_slots[1:]:
+                setattr(self, slots[0], Overflow(s))
+                for slot in slots[1:]:
                     setattr(self, slot, END)
             else:
                 sentinel = object()
-                for slot, v in zip_longest(item_slots, s, fillvalue=sentinel):
+                for slot, v in zip_longest(slots, s, fillvalue=sentinel):
                     if v is sentinel:
                         setattr(self, slot, END)
                     else:
@@ -119,11 +120,11 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             _assign(self, s)
 
         def __contains__(self, value):
-            first = getattr(self, item_slots[0])
+            first = getattr(self, slots[0])
             if isinstance(first, Overflow):
                 return value in first.data
 
-            for slot in item_slots:
+            for slot in slots:
                 v = getattr(self, slot)
                 if v is END:
                     break
@@ -133,12 +134,12 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
 
         def __iter__(self):
             yield from OptimizedCollectionMeta._mut_iter(
-                self, item_slots, Overflow, lambda o: o.data, END, lambda v: v
+                self, slots, Overflow, lambda o: o.data, END, lambda v: v
             )
 
         def __len__(self):
             return OptimizedCollectionMeta._mut_len(
-                self, item_slots, Overflow, lambda o: len(o.data), END
+                self, slots, Overflow, lambda o: len(o.data), END
             )
 
         def add(self, value):
