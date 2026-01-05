@@ -1,3 +1,10 @@
+"""Metaclasses for generating optimized set types.
+
+This module implements the set-specific metaclasses that generate immutable
+Set and MutableSet implementations with slot-based storage. Elements are
+stored directly in individual slots.
+"""
+
 from itertools import zip_longest
 from typing import Any, Optional
 
@@ -8,6 +15,13 @@ from opticol._sentinel import END, Overflow
 
 
 class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
+    """Metaclass for generating fixed-size immutable Set implementations.
+
+    Creates Set classes that store exactly the specified number of elements
+    in individual slots. Membership testing is performed by linear search.
+    Supports set operations (union, intersection, etc.) with optional recursive
+    optimization via the project parameter.
+    """
     def __new__(
         mcs,
         name: str,
@@ -77,6 +91,15 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
 
 
 class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
+    """Metaclass for generating overflow-capable MutableSet implementations.
+
+    Creates MutableSet classes that use slots for small sets but overflow to
+    a standard set when the number of elements exceeds capacity. Supports all
+    standard set operations including add and discard. When mutations cause
+    overflow or underflow, the internal representation is automatically adjusted
+    between slot-based and set-based storage.
+    """
+
     def __new__(
         mcs,
         name: str,

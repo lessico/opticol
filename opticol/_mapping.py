@@ -1,3 +1,10 @@
+"""Metaclasses for generating optimized mapping types.
+
+This module implements the mapping-specific metaclasses that generate immutable
+Mapping and MutableMapping implementations with slot-based storage. Each key-value
+pair is stored as a tuple in an individual slot.
+"""
+
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from itertools import zip_longest
 import operator
@@ -7,6 +14,12 @@ from opticol._meta import OptimizedCollectionMeta
 
 
 class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
+    """Metaclass for generating fixed-size immutable Mapping implementations.
+
+    Creates Mapping classes that store exactly the specified number of key-value
+    pairs in individual slots. Each slot contains a (key, value) tuple. Lookups
+    are performed by linear search through the slots.
+    """
     def __new__(
         mcs,
         name: str,
@@ -69,6 +82,15 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
 
 
 class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
+    """Metaclass for generating overflow-capable MutableMapping implementations.
+
+    Creates MutableMapping classes that use slots for small mappings but overflow
+    to a standard dict when the number of key-value pairs exceeds capacity.
+    Supports all standard dict operations. When mutations cause overflow or
+    underflow, the internal representation is automatically adjusted between
+    slot-based and dict-based storage.
+    """
+
     def __new__(
         mcs,
         name: str,

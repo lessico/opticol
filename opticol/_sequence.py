@@ -1,3 +1,9 @@
+"""Metaclasses for generating optimized sequence types.
+
+This module implements the sequence-specific metaclasses that generate immutable
+Sequence and MutableSequence implementations with slot-based storage.
+"""
+
 from itertools import zip_longest
 from typing import Any, Optional
 
@@ -8,6 +14,18 @@ from opticol._sentinel import END, Overflow
 
 
 def _adjust_index(idx: int, length: int) -> int:
+    """Normalize a potentially negative index to a positive offset.
+
+    Args:
+        idx: The index to normalize (may be negative for reverse indexing).
+        length: The length of the sequence.
+
+    Returns:
+        The normalized positive index.
+
+    Raises:
+        IndexError: If the adjusted index is out of bounds.
+    """
     adjusted = idx if idx >= 0 else length + idx
     if adjusted < 0 or adjusted >= length:
         raise IndexError(f"{adjusted} is outside of the expected bounds.")
@@ -15,6 +33,13 @@ def _adjust_index(idx: int, length: int) -> int:
 
 
 class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
+    """Metaclass for generating fixed-size immutable Sequence implementations.
+
+    Creates Sequence classes that store exactly the specified number of elements
+    in individual slots. Supports indexing (including negative indices) and
+    slicing with optional recursive optimization via the project parameter.
+    """
+
     def __new__(
         mcs,
         name: str,
@@ -81,6 +106,15 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
 
 
 class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
+    """Metaclass for generating overflow-capable MutableSequence implementations.
+
+    Creates MutableSequence classes that use slots for small collections but
+    overflow to a standard list when the number of elements exceeds capacity.
+    Supports all standard list operations including indexing, slicing, insertion,
+    and deletion. When mutations cause overflow or underflow, the internal
+    representation is automatically adjusted.
+    """
+
     def __new__(
         mcs,
         name: str,
