@@ -118,7 +118,7 @@ class Projector(ABC):
         """
 
 
-class PassThroughProjector(ABC):
+class PassThroughProjector(Projector):
     """Projector that returns all collections unchanged.
 
     This projector performs no optimization and returns input collections as-is. Useful for
@@ -160,14 +160,6 @@ class OptimizedCollectionProjector(Projector):
     The projector also supports recursive optimization: when slicing or using set operations on
     optimized collections, the results are automatically routed back through the projector,
     maintaining optimization for nested structures.
-
-    Attributes:
-        _seq: Router function for immutable sequences.
-        _mut_seq: Router function for mutable sequences.
-        _set: Router function for immutable sets.
-        _mut_set: Router function for mutable sets.
-        _mapping: Router function for immutable mappings.
-        _mut_mapping: Router function for mutable mappings.
     """
 
     @staticmethod
