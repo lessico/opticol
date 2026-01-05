@@ -1,12 +1,26 @@
-from collections.abc import Sequence
+"""Metaclasses for generating optimized mapping types.
+
+This module implements the mapping-specific metaclasses that generate immutable Mapping and
+MutableMapping implementations with slot-based storage. Each key-value pair is stored as a tuple in
+an individual slot.
+"""
+
+from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from itertools import zip_longest
 import operator
-from typing import Any
+from typing import Any, Optional
 
 from opticol._meta import OptimizedCollectionMeta
 
 
-class OptimizedMappingMeta(OptimizedCollectionMeta):
+class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
+    """Metaclass for generating fixed-size immutable Mapping implementations.
+
+    Creates Mapping classes that store exactly the specified number of key-value pairs in individual
+    slots. Each slot contains a (key, value) tuple. Lookups are performed by linear search through
+    the slots.
+    """
+
     def __new__(
         mcs,
         name: str,
@@ -15,45 +29,50 @@ class OptimizedMappingMeta(OptimizedCollectionMeta):
         *,
         internal_size: int,
     ) -> type:
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size,
+            project=None,
+            collection_name="Mapping",
+        )
 
     @staticmethod
-    def _add_methods(
-        item_slots: Sequence[str],
+    def add_methods(
+        slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
+        _: Optional[Callable[[Mapping], Mapping]],
     ) -> None:
+        internal_size = len(slots)
+
         def __init__(self, mapping):
             if len(mapping) != internal_size:
                 raise ValueError(
-                    f"Expected provided Mapping to have exactly {internal_size} elements but it has {len(mapping)}."
+                    f"Expected provided Mapping to have exactly {internal_size} elements but it "
+                    f"has {len(mapping)}."
                 )
 
-            for slot, t in zip(item_slots, mapping.items(), strict=True):
+            for slot, t in zip(slots, mapping.items(), strict=True):
                 setattr(self, slot, t)
 
         def __getitem__(self, key):
-            for slot in item_slots:
+            for slot in slots:
                 item = getattr(self, slot)
                 if item[0] == key:
                     return item[1]
             raise KeyError(key)
 
         def __iter__(self):
-            yield from (getattr(self, slot)[0] for slot in item_slots)
+            yield from (getattr(self, slot)[0] for slot in slots)
 
         def __len__(_):
             return internal_size
 
         def __repr__(self):
             items = [
-                f"{repr(getattr(self, slot)[0])}: {repr(getattr(self, slot)[1])}"
-                for slot in item_slots
+                f"{repr(getattr(self, slot)[0])}: {repr(getattr(self, slot)[1])}" for slot in slots
             ]
             return f"{{{", ".join(items)}}}"
 
@@ -64,7 +83,14 @@ class OptimizedMappingMeta(OptimizedCollectionMeta):
         namespace["__repr__"] = __repr__
 
 
-class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
+class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
+    """Metaclass for generating overflow-capable MutableMapping implementations.
+
+    Creates MutableMapping classes that use slots for small mappings but overflow to a standard dict
+    when the number of key-value pairs exceeds capacity. Supports all standard dict operations. When
+    mutations cause overflow or underflow, the internal representation is automatically adjusted.
+    """
+
     def __new__(
         mcs,
         name: str,
@@ -73,31 +99,32 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
         *,
         internal_size: int,
     ) -> type:
-        if internal_size < 0:
-            raise ValueError(f"{internal_size} is not a valid size for the MutableMapping type.")
-        internal_size = internal_size or 1
-
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size or 1,
+            project=None,
+            collection_name="MutableMapping",
+        )
 
     @staticmethod
-    def _add_methods(
-        item_slots: Sequence[str],
+    def add_methods(
+        slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
+        _: Optional[Callable[[MutableMapping], MutableMapping]],
     ) -> None:
+        internal_size = len(slots)
+
         def _assign(self, mapping):
             if len(mapping) > internal_size:
-                setattr(self, item_slots[0], mapping)
-                for slot in item_slots[1:]:
+                setattr(self, slots[0], mapping)
+                for slot in slots[1:]:
                     setattr(self, slot, None)
             else:
                 sentinel = object()
-                for pair, slot in zip_longest(mapping.items(), item_slots, fillvalue=sentinel):
+                for pair, slot in zip_longest(mapping.items(), slots, fillvalue=sentinel):
                     if pair is sentinel:
                         setattr(self, slot, None)
                     else:
@@ -107,11 +134,11 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
             _assign(self, mapping)
 
         def __getitem__(self, key):
-            first = getattr(self, item_slots[0])
+            first = getattr(self, slots[0])
             if isinstance(first, dict):
                 return first[key]
 
-            for slot in item_slots:
+            for slot in slots:
                 item = getattr(self, slot)
                 if item is None:
                     break
@@ -133,11 +160,11 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta):
 
         def __iter__(self):
             yield from OptimizedCollectionMeta._mut_iter(
-                self, item_slots, dict, lambda d: d, None, operator.itemgetter(0)
+                self, slots, dict, lambda d: d, None, operator.itemgetter(0)
             )
 
         def __len__(self):
-            return OptimizedCollectionMeta._mut_len(self, item_slots, dict, lambda d: d, None)
+            return OptimizedCollectionMeta._mut_len(self, slots, dict, lambda d: d, None)
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]

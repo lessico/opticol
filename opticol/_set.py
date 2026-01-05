@@ -1,3 +1,9 @@
+"""Metaclasses for generating optimized set types.
+
+This module implements the set-specific metaclasses that generate immutable Set and MutableSet
+implementations with slot-based storage. Elements are stored directly in individual slots.
+"""
+
 from itertools import zip_longest
 from typing import Any, Optional
 
@@ -7,7 +13,18 @@ from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
 
-class OptimizedSetMeta(OptimizedCollectionMeta):
+class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
+    """Metaclass for generating fixed-size immutable Set implementations.
+
+    Creates Set classes that store exactly the specified number of elements in individual slots.
+    Membership testing is performed by linear search. Supports set operations (union, intersection,
+    etc.) with optional recursive optimization via the project parameter.
+
+    Because membership testing is done via a linear search, this implementation will accept
+    unhashable types. However, it is still not wise to use such values in the set since growing the
+    set will likely result in falling back to the python default which will throw.
+    """
+
     def __new__(
         mcs,
         name: str,
@@ -17,37 +34,42 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         internal_size: int,
         project: Optional[Callable[[Set], Set]],
     ) -> type:
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size, project)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size,
+            project=project,
+            collection_name="Set",
+        )
 
     @staticmethod
-    def _add_methods(
-        item_slots: Sequence[str],
+    def add_methods(
+        slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
         project: Optional[Callable[[Set], Set]],
     ) -> None:
+        internal_size = len(slots)
+
         def __init__(self, s):
             if len(s) != internal_size:
                 raise ValueError(
-                    f"Expected provided Set to have exactly {internal_size} elements but it has {len(s)}."
+                    f"Expected provided Set to have exactly {internal_size} elements but it has "
+                    f"{len(s)}."
                 )
 
-            for slot, v in zip(item_slots, s, strict=True):
+            for slot, v in zip(slots, s, strict=True):
                 setattr(self, slot, v)
 
         def __contains__(self, value):
-            for slot in item_slots:
+            for slot in slots:
                 if getattr(self, slot) == value:
                     return True
             return False
 
         def __iter__(self):
-            for slot in item_slots:
+            for slot in slots:
                 yield getattr(self, slot)
 
         def __len__(_):
@@ -56,11 +78,13 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         def __repr__(self):
             if internal_size == 0:
                 return "set()"
-            return f"{{{", ".join(repr(getattr(self, slot)) for slot in item_slots)}}}"
+            return f"{{{", ".join(repr(getattr(self, slot)) for slot in slots)}}}"
 
         if project is not None:
+
             def _from_iterable(_, it):
                 return project(set(it))
+
             namespace["_from_iterable"] = classmethod(_from_iterable)
 
         namespace["__init__"] = __init__
@@ -70,7 +94,19 @@ class OptimizedSetMeta(OptimizedCollectionMeta):
         namespace["__repr__"] = __repr__
 
 
-class OptimizedMutableSetMeta(OptimizedCollectionMeta):
+class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
+    """Metaclass for generating overflow-capable MutableSet implementations.
+
+    Creates MutableSet classes that use slots for small sets but overflow to a standard set when the
+    number of elements exceeds capacity. Supports all standard set operations including add and
+    discard. When mutations cause overflow or underflow, the internal representation is
+    automatically adjusted between slot-based and set-based storage.
+
+    Because membership testing is done via a linear search, this implementation will accept
+    unhashable types. However, it is still not wise to use such values in the set since growing the
+    set will likely result in falling back to the python default which will throw.
+    """
+
     def __new__(
         mcs,
         name: str,
@@ -80,32 +116,32 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
         internal_size: int,
         project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> type:
-        if internal_size < 0:
-            raise ValueError(f"{internal_size} is not a valid size for the MutableSet type.")
-        internal_size = internal_size or 1
-
-        slots = tuple(f"_item{i}" for i in range(internal_size))
-        namespace["__slots__"] = slots
-
-        mcs._add_methods(slots, namespace, internal_size, project)
-
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(
+            mcs,
+            name,
+            bases,
+            namespace,
+            internal_size=internal_size or 1,
+            project=project,
+            collection_name="MutableSet",
+        )
 
     @staticmethod
-    def _add_methods(
-        item_slots: Sequence[str],
+    def add_methods(
+        slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
         project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> None:
+        internal_size = len(slots)
+
         def _assign(self, s):
             if len(s) > internal_size:
-                setattr(self, item_slots[0], Overflow(s))
-                for slot in item_slots[1:]:
+                setattr(self, slots[0], Overflow(s))
+                for slot in slots[1:]:
                     setattr(self, slot, END)
             else:
                 sentinel = object()
-                for slot, v in zip_longest(item_slots, s, fillvalue=sentinel):
+                for slot, v in zip_longest(slots, s, fillvalue=sentinel):
                     if v is sentinel:
                         setattr(self, slot, END)
                     else:
@@ -115,11 +151,11 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
             _assign(self, s)
 
         def __contains__(self, value):
-            first = getattr(self, item_slots[0])
+            first = getattr(self, slots[0])
             if isinstance(first, Overflow):
                 return value in first.data
 
-            for slot in item_slots:
+            for slot in slots:
                 v = getattr(self, slot)
                 if v is END:
                     break
@@ -129,12 +165,12 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
 
         def __iter__(self):
             yield from OptimizedCollectionMeta._mut_iter(
-                self, item_slots, Overflow, lambda o: o.data, END, lambda v: v
+                self, slots, Overflow, lambda o: o.data, END, lambda v: v
             )
 
         def __len__(self):
             return OptimizedCollectionMeta._mut_len(
-                self, item_slots, Overflow, lambda o: len(o.data), END
+                self, slots, Overflow, lambda o: len(o.data), END
             )
 
         def add(self, value):
@@ -153,8 +189,10 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta):
             return f"{{{", ".join(repr(val) for val in self)}}}"
 
         if project is not None:
+
             def _from_iterable(_, it):
                 return project(set(it))
+
             namespace["_from_iterable"] = classmethod(_from_iterable)
 
         namespace["__init__"] = __init__
