@@ -18,7 +18,7 @@ def _adjust_index(idx: int, length: int) -> int:
 
     Args:
         idx: The index to normalize (may be negative for reverse indexing).
-        length: The length of the sequence.
+        length: The length of the sequence being indexed into.
 
     Returns:
         The normalized positive index.
@@ -35,9 +35,9 @@ def _adjust_index(idx: int, length: int) -> int:
 class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
     """Metaclass for generating fixed-size immutable Sequence implementations.
 
-    Creates Sequence classes that store exactly the specified number of elements
-    in individual slots. Supports indexing (including negative indices) and
-    slicing with optional recursive optimization via the project parameter.
+    Creates Sequence classes that store exactly the specified number of elements in individual
+    slots. Supports indexing (including negative indices) and slicing with optional recursive
+    optimization via the project parameter.
     """
 
     def __new__(
@@ -63,9 +63,10 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
     def add_methods(
         slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
         project: Optional[Callable[[Sequence], Sequence]],
     ) -> None:
+        internal_size = len(slots)
+
         def __init__(self, seq):
             if len(seq) != internal_size:
                 raise ValueError(
@@ -108,11 +109,10 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
 class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
     """Metaclass for generating overflow-capable MutableSequence implementations.
 
-    Creates MutableSequence classes that use slots for small collections but
-    overflow to a standard list when the number of elements exceeds capacity.
-    Supports all standard list operations including indexing, slicing, insertion,
-    and deletion. When mutations cause overflow or underflow, the internal
-    representation is automatically adjusted.
+    Creates MutableSequence classes that use slots for small collections but overflow to a standard
+    list when the number of elements exceeds capacity. Supports all standard list operations
+    including indexing, slicing, insertion, and deletion. When mutations cause overflow or
+    underflow, the internal representation is automatically adjusted.
     """
 
     def __new__(
@@ -138,9 +138,10 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
     def add_methods(
         slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
         project: Optional[Callable[[MutableSequence], MutableSequence]],
     ) -> None:
+        internal_size = len(slots)
+
         def _assign(self, seq):
             if len(seq) > internal_size:
                 setattr(self, slots[0], Overflow(seq))

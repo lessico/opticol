@@ -1,8 +1,7 @@
 """Metaclasses for generating optimized set types.
 
-This module implements the set-specific metaclasses that generate immutable
-Set and MutableSet implementations with slot-based storage. Elements are
-stored directly in individual slots.
+This module implements the set-specific metaclasses that generate immutable Set and MutableSet
+implementations with slot-based storage. Elements are stored directly in individual slots.
 """
 
 from itertools import zip_longest
@@ -17,11 +16,15 @@ from opticol._sentinel import END, Overflow
 class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     """Metaclass for generating fixed-size immutable Set implementations.
 
-    Creates Set classes that store exactly the specified number of elements
-    in individual slots. Membership testing is performed by linear search.
-    Supports set operations (union, intersection, etc.) with optional recursive
-    optimization via the project parameter.
+    Creates Set classes that store exactly the specified number of elements in individual slots.
+    Membership testing is performed by linear search. Supports set operations (union, intersection,
+    etc.) with optional recursive optimization via the project parameter.
+
+    Because membership testing is done via a linear search, this implementation will accept
+    unhashable types. However, it is still not wise to use such values in the set since growing the
+    set will likely result in falling back to the python default which will throw.
     """
+
     def __new__(
         mcs,
         name: str,
@@ -45,9 +48,10 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     def add_methods(
         slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
         project: Optional[Callable[[Set], Set]],
     ) -> None:
+        internal_size = len(slots)
+
         def __init__(self, s):
             if len(s) != internal_size:
                 raise ValueError(
@@ -93,11 +97,14 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
 class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
     """Metaclass for generating overflow-capable MutableSet implementations.
 
-    Creates MutableSet classes that use slots for small sets but overflow to
-    a standard set when the number of elements exceeds capacity. Supports all
-    standard set operations including add and discard. When mutations cause
-    overflow or underflow, the internal representation is automatically adjusted
-    between slot-based and set-based storage.
+    Creates MutableSet classes that use slots for small sets but overflow to a standard set when the
+    number of elements exceeds capacity. Supports all standard set operations including add and
+    discard. When mutations cause overflow or underflow, the internal representation is
+    automatically adjusted between slot-based and set-based storage.
+
+    Because membership testing is done via a linear search, this implementation will accept
+    unhashable types. However, it is still not wise to use such values in the set since growing the
+    set will likely result in falling back to the python default which will throw.
     """
 
     def __new__(
@@ -123,9 +130,10 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
     def add_methods(
         slots: Sequence[str],
         namespace: dict[str, Any],
-        internal_size: int,
         project: Optional[Callable[[MutableSet], MutableSet]],
     ) -> None:
+        internal_size = len(slots)
+
         def _assign(self, s):
             if len(s) > internal_size:
                 setattr(self, slots[0], Overflow(s))
