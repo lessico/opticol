@@ -34,6 +34,9 @@ from opticol._mapping import OptimizedMappingMeta, OptimizedMutableMappingMeta
 from opticol._sequence import OptimizedMutableSequenceMeta, OptimizedSequenceMeta
 from opticol._set import OptimizedMutableSetMeta, OptimizedSetMeta
 
+# TODO: I think caching should be a flag rather than an uncontrollable decorator. This will make
+# testing easier, but also allow for better workarounds in some exotic cases.
+
 _cls_index: int = 0
 
 
@@ -105,7 +108,7 @@ def create_seq_class(size: int, project: Optional[Callable[[Sequence], Sequence]
 
 @cached
 def create_mut_seq_class(
-    size: int, project: Optional[Callable[[MutableSequence], MutableSequence]]
+    size: int, project: Optional[Callable[[MutableSequence], MutableSequence]] = None
 ) -> type:
     """Create an optimized MutableSequence class for the specified size.
 
