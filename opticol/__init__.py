@@ -1,14 +1,15 @@
-"""Convenient access to optimized collections via a default projector.
+"""Convenient access to a default collection projection policy.
 
 This module provides quick-access functions for creating optimized collections
 using a sensible default projector configuration. These functions (seq, mut_seq,
 set, mut_set, mapping, mut_mapping) are backed by a default OptimizedCollectionProjector
-instance configured for collections of size 0-3.
+instance configured for collections of size 0-3. This projector instance can be accessed
+by the `default` member as well.
 
 For more control over optimization strategy, consumers should use the Projector
 API directly (see opticol.projector). Projectors provide a pluggable policy layer
 that allows different optimization approaches to be swapped based on use case.
-The factory module (_factory.py) contains the underlying implementation that
+The factory module (factory.py) contains the underlying implementation that
 generates optimized collection classes of arbitrary sizes.
 
 Example:
