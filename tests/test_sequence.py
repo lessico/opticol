@@ -124,8 +124,6 @@ def harness[T](
     if len(factories) < 2:
         raise ValueError("Expected at least two factories to compare operations on.")
 
-    materialized_cache: dict[Iterator, list] = {}
-
     targets = [factory(seed) for factory in factories]
 
     def exec(current, op):
@@ -139,6 +137,7 @@ def harness[T](
         return (successful, result)
 
     for i, op in enumerate(ops):
+        materialized_cache: dict[Iterator, list] = {}
         results = [exec(target, op) for target in targets]
 
         for j, sub in enumerate(results[1:], 1):
@@ -171,6 +170,12 @@ def count[T](val: Any) -> Callable[[Sequence[T]], int]:
 def test_seq_getitem():
     """Test that optimized sequences have the same getitem semantics as builtins."""
     harness(
+        [],
+        [list, tuple, create_seq_class(0)],
+        [getitem(slice(0, -1)), getitem(slice(-1, -1)), getitem(slice(None))],
+    )
+
+    harness(
         [4, 5, 6],
         [list, tuple, create_seq_class(3)],
         [getitem(-1), getitem(0), getitem(1), getitem(2), getitem(3), getitem(-2), getitem(-3)],
@@ -182,10 +187,31 @@ def test_seq_getitem():
         [getitem(slice(0, -1)), getitem(slice(-1, -1)), getitem(slice(None)), getitem(slice(1, 3))],
     )
 
+
+def test_seq_len():
+    """Test that optimized sequences have the same len semantics as builtins."""
     harness(
         [],
         [list, tuple, create_seq_class(0)],
-        [getitem(slice(0, -1)), getitem(slice(-1, -1)), getitem(slice(None))],
+        [len],
+    )
+
+    harness(
+        [3.14],
+        [list, tuple, create_seq_class(1)],
+        [len],
+    ),
+
+    harness(
+        [3.14, 2.71],
+        [list, tuple, create_seq_class(2)],
+        [len],
+    )
+
+    harness(
+        [None, None, None],
+        [list, tuple, create_seq_class(3)],
+        [len],
     )
 
 
@@ -203,6 +229,60 @@ def test_seq_contains():
     harness([100], [list, tuple, create_seq_class(1)], [contains(0, False), contains(100)])
 
 
+def test_seq_iter():
+    """Test that optimized sequences have the same iter semantics as builtins."""
+    harness(
+        [],
+        [list, tuple, create_seq_class(0)],
+        [iter]
+    )
+
+    harness(
+        [True],
+        [list, tuple, create_seq_class(1)],
+        [iter]
+    )
+
+    harness(
+        [False, True],
+        [list, tuple, create_seq_class(2)],
+        [iter]
+    )
+
+    harness(
+        [3.14, 2.71, -1],
+        [list, tuple, create_seq_class(3)],
+        [iter]
+    )
+
+
+def test_seq_reversed():
+    """Test that optimized sequences have the same reversed semantics as builtins."""
+    harness(
+        [],
+        [list, tuple, create_seq_class(0)],
+        [reversed]
+    )
+
+    harness(
+        [True],
+        [list, tuple, create_seq_class(1)],
+        [reversed]
+    )
+
+    harness(
+        [False, True],
+        [list, tuple, create_seq_class(2)],
+        [reversed]
+    )
+
+    harness(
+        [3.14, 2.71, -1],
+        [list, tuple, create_seq_class(3)],
+        [reversed]
+    )
+
+
 def test_seq_index():
     """Test that optimized sequences have the same index semantics as builtins."""
 
@@ -216,21 +296,6 @@ def test_seq_index():
         [10, 11],
         [list, tuple, create_seq_class(2)],
         [index(10), index(9), index(11, 1), index(11, 0, 0)]
-    )
-
-
-def test_seq_iter():
-    """Test that optimized sequences have the same iter semantics as builtins."""
-    harness(
-        [],
-        [list, tuple, create_seq_class(0)],
-        [iter]
-    )
-
-    harness(
-        [3.14, 2.71, -1],
-        [list, tuple, create_seq_class(3)],
-        [iter]
     )
 
 
