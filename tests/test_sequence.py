@@ -169,6 +169,7 @@ def count[T](val: Any) -> Callable[[Sequence[T]], int]:
 
 
 def test_seq_getitem():
+    """Test that optimized sequences have the same getitem semantics as builtins."""
     harness(
         [4, 5, 6],
         [list, tuple, create_seq_class(3)],
@@ -189,7 +190,7 @@ def test_seq_getitem():
 
 
 def test_seq_contains():
-    """Test that optimized sequences have the same contains semantics as lists."""
+    """Test that optimized sequences have the same contains semantics as builtins."""
 
     harness(
         [1, 2, 3],
@@ -203,7 +204,7 @@ def test_seq_contains():
 
 
 def test_seq_index():
-    """Test that optimized sequences have the same index semantics as lists."""
+    """Test that optimized sequences have the same index semantics as builtins."""
 
     harness(
         [],
@@ -217,7 +218,9 @@ def test_seq_index():
         [index(10), index(9), index(11, 1), index(11, 0, 0)]
     )
 
+
 def test_seq_iter():
+    """Test that optimized sequences have the same iter semantics as builtins."""
     harness(
         [],
         [list, tuple, create_seq_class(0)],
@@ -228,4 +231,26 @@ def test_seq_iter():
         [3.14, 2.71, -1],
         [list, tuple, create_seq_class(3)],
         [iter]
+    )
+
+
+def test_seq_count():
+    """Test that optimized sequences have the same count semantics as builtins."""
+
+    harness(
+        [],
+        [list, tuple, create_seq_class(0)],
+        [count(1), count(None)]
+    )
+
+    harness(
+        [None],
+        [list, tuple, create_seq_class(1)],
+        [count(1), count(None)]
+    )
+
+    harness(
+        [1, 1, None],
+        [list, tuple, create_seq_class(3)],
+        [count(1), count(None)]
     )
