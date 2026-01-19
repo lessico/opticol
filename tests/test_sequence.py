@@ -1,164 +1,10 @@
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Sequence
 import sys
 from typing import Any
 
 from opticol.factory import create_seq_class
+from tests import eq, shared
 
-type Factory[T] = Callable[[Sequence[T]], Sequence[T]]
-
-
-def _success_label(success: bool) -> str:
-    """
-    Convert a flag indicating success into a past participle for error message creation.
-
-    Args:
-        success: True if the thing being labeled was successful.
-
-    Returns:
-        'succeeded' if the flag is True and 'failed' otherwise.
-    """
-    if success:
-        return "succeeded"
-
-    return "failed"
-
-
-def eq_seq[T](seq1: Sequence[T], seq2: Sequence[T]) -> bool:
-    """
-    Return if two sequences are identical at the Sequence interface level.
-
-    Args:
-        seq1: One of the sequences to compare for equality.
-        seq2: The other sequence to compare for equality.
-
-    Returns:
-        True if the two sequences are identical and False otherwise.
-    """
-    if len(seq1) != len(seq2):
-        return False
-
-    for item1, item2 in zip(seq1, seq2):
-        if item1 != item2:
-            return False
-
-    return True
-
-
-def eq_op_result[T, U](first: T, second: U, materialized_cache: dict[Iterator, list]) -> bool:
-    """
-    Checks if the result of two Sequence operations are identical.
-
-    The results are obtained if the Sequence operation succeeds and does not raise an error.
-    Sequence operation here refers to those operations defined on the ABC collection documentation
-    as required to implement, and mixins.
-
-    Based on this documentation, the only possible results from a Sequence operation are an
-    Iterator, another Sequence, an item from the Sequence or a boolean.
-
-    Args:
-        first: The first result to compare.
-        second: The second result to compare.
-        materialized_cache: The per harness cache of iterators their in-memory materialized version.
-
-    Returns:
-        True if the results of the operation are identical, and False otherwise.
-    """
-    if isinstance(first, Iterator) and isinstance(second, Iterator):
-        if first not in materialized_cache:
-            materialized_cache[first] = list(first)
-        f = materialized_cache[first]
-
-        if second not in materialized_cache:
-            materialized_cache[second] = list(second)
-        s = materialized_cache[second]
-
-        return eq_seq(f, s)
-    elif isinstance(first, Sequence) and isinstance(second, Sequence):
-        return eq_seq(first, second)
-
-    # The results of the operations are either elements from the sequence or a boolean.
-    return first == second
-
-
-def assert_eq_op[T, U](
-    unk: tuple[bool, T],
-    ref: tuple[bool, U],
-    unk_idx: int,
-    op_idx: int,
-    materialized_cache: dict[Iterator, list],
-) -> None:
-    """
-    Assert that two operations on a Sequence have the same output.
-
-    The operation if successful, has some output, but in the error case, will raise an error. So the
-    first value is a flag if the operation was successful, and the second value is either the result
-    of the operation or the error that was raised.
-
-    Args:
-        unk: The result that is being compared against a reference.
-        ref: The reference being compared against.
-        unk_idx: Used for crafing the assert message in the case of any failure. Indexes the unknown
-            sequence instance.
-        op_idx: The operation index operating on the different sequence instances.
-        materialized_list: The per harness cache of iterators to lists.
-    """
-    assert unk[0] == ref[0], (
-        f"The operation at index {op_idx} {_success_label(unk[0])} on the factory at index "
-        f"{unk_idx} with result '{ref[1]}' while the first factory {_success_label(ref[0])} "
-        f"with result {ref[1]}."
-    )
-
-    # If the operation did not raise any error, then just compare the results otherwise, the
-    # error check just ensures that they are the same error types, since there is no other
-    # reliable and deeper comparison available.
-    if unk[0]:
-        assert eq_op_result(unk[1], ref[1], materialized_cache)
-    else:
-        assert type(unk[1]) == type(ref[1])
-
-
-def _harness[T](
-    seed: Sequence[T],
-    factories: Sequence[Factory[T]],
-    ops: Sequence[Callable[[Sequence], Any]],
-) -> None:
-    """
-    The main test harness for Sequences and which can be used to establish API level equivalence.
-
-    There are technically no behavior level definitions of Sequences and there are a lot of edge
-    cases, so the easiest way to test behavior is to compare the effects and results of different
-    implementations on various interface definitions.
-
-    Args:
-        seed: The value that is provided to the various factories to create the Sequence instances.
-        factories: The implementations to test via the harness.
-        ops: The operations to call on the Sequence. The results will be validated and any mutations
-            to the underlying Sequence will be compared as well.
-    """
-    if len(factories) < 2:
-        raise ValueError("Expected at least two factories to compare operations on.")
-
-    targets = [factory(seed) for factory in factories]
-
-    def exec(current, op):
-        successful = True
-        try:
-            result = op(current)
-        except Exception as exc:
-            successful = False
-            result = exc
-
-        return (successful, result)
-
-    for i, op in enumerate(ops):
-        materialized_cache: dict[Iterator, list] = {}
-        results = [exec(target, op) for target in targets]
-
-        for j, sub in enumerate(results[1:], 1):
-            assert_eq_op(sub, results[0], j, i, materialized_cache)
-
-        for target in targets[1:]:
-            assert eq_seq(targets[0], target)
 
 
 def harness[T](
@@ -177,7 +23,7 @@ def harness[T](
             variants.
     """
     factories = [list, tuple, create_seq_class(len(seed))]
-    _harness(seed, factories, ops)
+    shared.harness(seed, factories, ops, eq.seq, eq.seq_op_result)
 
 
 def getitem[T](key: int | slice) -> Callable[[Sequence[T]], T | Sequence[T]]:
