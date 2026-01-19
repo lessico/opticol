@@ -28,7 +28,7 @@ from collections.abc import (
     Set,
 )
 import functools
-from typing import Optional
+from typing import Any, Optional, TypeVar, overload
 
 from opticol._mapping import OptimizedMappingMeta, OptimizedMutableMappingMeta
 from opticol._sequence import OptimizedMutableSequenceMeta, OptimizedSequenceMeta
@@ -52,7 +52,19 @@ def _unique_cls_name(name: str) -> str:
     return f"{name}_{_cls_index}"
 
 
-def cached(func):
+@overload
+def cached[F: Callable[..., Any]](func: F, *, skipped_by: Optional[str] = None) -> F: ...
+
+
+@overload
+def cached[F: Callable[..., Any]](
+    func: None = None, *, skipped_by: Optional[str] = None
+) -> Callable[[F], F]: ...
+
+
+def cached[F: Callable[..., Any]](
+    func: Optional[F] = None, *, skipped_by: Optional[str] = None
+) -> F | Callable[[F], F]:
     """Cache function results based on arguments to avoid duplicate work.
 
     This decorator caches function results using arguments and keyword arguments as the cache key.
@@ -61,35 +73,56 @@ def cached(func):
     non hashable instances can still be provided for arguments.
 
     Args:
-        func: Function to cache.
+        func: The function to apply this decorator to. If no such function is provided, then the
+            decorator itself is returned. In terms of calling convention, this generally maps to:
+            - @cached                 <- func is not None
+            - @cached()               <- func is None
+            - @cached(skipped_by=...) <- func is None
+        skipped_by: The optional name of the boolean parameter on the decorated function which if
+            set will skip the caching logic entirely. This must be a parameter provided keyword.
 
     Returns:
-        Wrapped function with caching behavior.
+        The decorator (or possibly the applied result of it).
     """
-    cache = {}
 
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        key = (args, tuple(sorted(kwargs.items())))
-        try:
-            hash(key)
-        except TypeError:
-            return func(*args, **kwargs)
+    def decorator(inner_func: Callable):
+        cache = {}
 
-        if key not in cache:
-            cache[key] = func(*args, **kwargs)
-        return cache[key]
+        @functools.wraps(inner_func)
+        def wrapper(*args, **kwargs):
+            if skipped_by in kwargs:
+                skip_flag = kwargs[skipped_by]
+                if isinstance(skip_flag, bool) and skip_flag:
+                    return inner_func(*args, **kwargs)
 
-    return wrapper
+            key = (args, tuple(sorted(kwargs.items())))
+            try:
+                hash(key)
+            except TypeError:
+                return inner_func(*args, **kwargs)
+
+            if key not in cache:
+                cache[key] = inner_func(*args, **kwargs)
+            return cache[key]
+
+        return wrapper
+
+    if func is not None:
+        return decorator(func)
+
+    return decorator
 
 
-@cached
-def create_seq_class(size: int, project: Optional[Callable[[Sequence], Sequence]] = None) -> type:
+@cached(skipped_by="skip_cache")
+def create_seq_class(
+    size: int, project: Optional[Callable[[Sequence], Sequence]] = None, *, skip_cache: bool = False
+) -> type:
     """Create an optimized immutable Sequence class for the specified size.
 
     Args:
         size: Number of elements the sequence will hold.
         project: Optional function for recursively optimizing nested sequences.
+        skip_cache: Flag if the module level cache should be bypassed.
 
     Returns:
         A Sequence class optimized for exactly 'size' elements.
@@ -103,9 +136,12 @@ def create_seq_class(size: int, project: Optional[Callable[[Sequence], Sequence]
     )
 
 
-@cached
+@cached(skipped_by="skip_cache")
 def create_mut_seq_class(
-    size: int, project: Optional[Callable[[MutableSequence], MutableSequence]]
+    size: int,
+    project: Optional[Callable[[MutableSequence], MutableSequence]] = None,
+    *,
+    skip_cache: bool = False,
 ) -> type:
     """Create an optimized MutableSequence class for the specified size.
 
@@ -115,6 +151,7 @@ def create_mut_seq_class(
     Args:
         size: Number of slots to allocate for elements.
         project: Optional function for recursively optimizing nested sequences.
+        skip_cache: Flag if the module level cache should be bypassed.
 
     Returns:
         A MutableSequence class optimized for up to 'size' elements.
@@ -128,13 +165,16 @@ def create_mut_seq_class(
     )
 
 
-@cached
-def create_set_class(size: int, project: Optional[Callable[[Set], Set]] = None) -> type:
+@cached(skipped_by="skip_cache")
+def create_set_class(
+    size: int, project: Optional[Callable[[Set], Set]] = None, *, skip_cache: bool = False
+) -> type:
     """Create an optimized immutable Set class for the specified size.
 
     Args:
         size: Number of elements the set will hold.
         project: Optional function for recursively optimizing nested sets.
+        skip_cache: Flag if the module level cache should be bypassed.
 
     Returns:
         A Set class optimized for exactly 'size' elements.
@@ -144,9 +184,12 @@ def create_set_class(size: int, project: Optional[Callable[[Set], Set]] = None) 
     )
 
 
-@cached
+@cached(skipped_by="skip_cache")
 def create_mut_set_class(
-    size: int, project: Optional[Callable[[MutableSet], MutableSet]] = None
+    size: int,
+    project: Optional[Callable[[MutableSet], MutableSet]] = None,
+    *,
+    skip_cache: bool = False,
 ) -> type:
     """Create an optimized MutableSet class for the specified size.
 
@@ -156,6 +199,7 @@ def create_mut_set_class(
     Args:
         size: Number of slots to allocate for elements.
         project: Optional function for recursively optimizing nested sets.
+        skip_cache: Flag if the module level cache should be bypassed.
 
     Returns:
         A MutableSet class optimized for up to 'size' elements.
@@ -169,12 +213,13 @@ def create_mut_set_class(
     )
 
 
-@cached
-def create_mapping_class(size: int) -> type:
+@cached(skipped_by="skip_cache")
+def create_mapping_class(size: int, *, skip_cache: bool = False) -> type:
     """Create an optimized immutable Mapping class for the specified size.
 
     Args:
         size: Number of key-value pairs the mapping will hold.
+        skip_cache: Flag if the module level cache should be bypassed.
 
     Returns:
         A Mapping class optimized for exactly 'size' key-value pairs.
@@ -184,8 +229,8 @@ def create_mapping_class(size: int) -> type:
     )
 
 
-@cached
-def create_mut_mapping_class(size: int) -> type:
+@cached(skipped_by="skip_cache")
+def create_mut_mapping_class(size: int, *, skip_cache: bool = False) -> type:
     """Create an optimized MutableMapping class for the specified size.
 
     The created class supports overflow to standard dict when key-value pairs
@@ -193,6 +238,7 @@ def create_mut_mapping_class(size: int) -> type:
 
     Args:
         size: Number of slots to allocate for key-value pairs.
+        skip_cache: Flag if the module level cache should be bypassed.
 
     Returns:
         A MutableMapping class optimized for up to 'size' key-value pairs.
