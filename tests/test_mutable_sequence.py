@@ -1,3 +1,5 @@
+"""Test the memory optimized MutableSequence implementation for equivalence with builtins."""
+
 from collections.abc import Callable, MutableSequence
 from typing import Any
 
@@ -38,7 +40,6 @@ def setitem[T](key: int | slice, value: T) -> Callable[[MutableSequence[T]], Non
 
     def op(s):
         s[key] = value
-        return None
 
     return op
 
@@ -48,7 +49,6 @@ def delitem(key: int | slice) -> Callable[[MutableSequence], None]:
 
     def op(s):
         del s[key]
-        return None
 
     return op
 
@@ -58,7 +58,6 @@ def insert[T](idx: int, value: T) -> Callable[[MutableSequence[T]], None]:
 
     def op(s):
         s.insert(idx, value)
-        return None
 
     return op
 
@@ -68,7 +67,6 @@ def append[T](value: T) -> Callable[[MutableSequence[T]], None]:
 
     def op(s):
         s.append(value)
-        return None
 
     return op
 
@@ -78,7 +76,6 @@ def clear() -> Callable[[MutableSequence], None]:
 
     def op(s):
         s.clear()
-        return None
 
     return op
 
@@ -88,7 +85,6 @@ def reverse() -> Callable[[MutableSequence], None]:
 
     def op(s):
         s.reverse()
-        return None
 
     return op
 
@@ -98,7 +94,6 @@ def extend[T](values: list[T]) -> Callable[[MutableSequence[T]], None]:
 
     def op(s):
         s.extend(values)
-        return None
 
     return op
 
@@ -106,7 +101,7 @@ def extend[T](values: list[T]) -> Callable[[MutableSequence[T]], None]:
 def pop(idx: int | None = None) -> Callable[[MutableSequence], Any]:
     """Create a callable which wraps pop and calls it on the given MutableSequence."""
     if idx is None:
-        return lambda s: s.pop()
+        idx = -1
     return lambda s: s.pop(idx)
 
 
@@ -115,7 +110,6 @@ def remove[T](value: T) -> Callable[[MutableSequence[T]], None]:
 
     def op(s):
         s.remove(value)
-        return None
 
     return op
 
@@ -125,7 +119,6 @@ def iadd[T](values: list[T]) -> Callable[[MutableSequence[T]], MutableSequence[T
 
     def op(s):
         s += values
-        return s
 
     return op
 

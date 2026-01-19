@@ -55,7 +55,8 @@ def eq_op_result(first: Any, second: Any, materialized_cache: dict[Iterator, lis
         s = materialized_cache[second]
 
         return eq(f, s)
-    elif isinstance(first, Sequence) and isinstance(second, Sequence):
+
+    if isinstance(first, Sequence) and isinstance(second, Sequence):
         return eq(first, second)
 
     # The results of the operations are either elements from the sequence or a boolean.
@@ -69,7 +70,7 @@ def getitem[T](key: int | slice) -> Callable[[Sequence[T]], T | Sequence[T]]:
 
 def contains[T](other: object, result: bool = True) -> Callable[[Sequence[T]], bool]:
     """Create a callable which wraps contains and calls it on the given Sequence."""
-    return lambda s: (other in s == result)
+    return lambda s: ((other in s) == result)
 
 
 def index[T](val: Any, start: int = 0, stop: int = sys.maxsize, /) -> Callable[[Sequence[T]], int]:
