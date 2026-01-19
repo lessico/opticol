@@ -28,15 +28,40 @@ from collections.abc import (
     Set,
 )
 import functools
-from typing import Any, Optional, TypeVar, overload
+from typing import Any, Optional, ParamSpec, Protocol, TypeVar, overload
 
 from opticol._mapping import OptimizedMappingMeta, OptimizedMutableMappingMeta
 from opticol._sequence import OptimizedMutableSequenceMeta, OptimizedSequenceMeta
 from opticol._set import OptimizedMutableSetMeta, OptimizedSetMeta
 
-_cls_index: int = 0
+P = ParamSpec("P")
+R_co = TypeVar("R_co", covariant=True)
 
 
+class _WithCounter(Protocol[P, R_co]):
+    """
+    Defines a callable object that includes a counter member, for use with the following decorator.
+    """
+
+    counter: int
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co: ...
+
+
+def with_counter(func: Callable[P, R_co]) -> _WithCounter[P, R_co]:
+    """Generic type-safe decorator that adds counter."""
+
+    @functools.wraps(func)
+    def wrapped(*args, **kwargs):
+        wrapped.counter += 1  # pylint: disable=no-member
+        return func(*args, **kwargs)
+
+    setattr(wrapped, "counter", 0)
+
+    return wrapped  # type: ignore
+
+
+@with_counter
 def _unique_cls_name(name: str) -> str:
     """
     Create a guaranteed unique class name given the desired name.
@@ -47,9 +72,7 @@ def _unique_cls_name(name: str) -> str:
     Returns:
         The transformed unique class name.
     """
-    global _cls_index
-    _cls_index += 1
-    return f"{name}_{_cls_index}"
+    return f"{name}_{_unique_cls_name.counter}"
 
 
 @overload
@@ -115,7 +138,10 @@ def cached[F: Callable[..., Any]](
 
 @cached(skipped_by="skip_cache")
 def create_seq_class(
-    size: int, project: Optional[Callable[[Sequence], Sequence]] = None, *, skip_cache: bool = False
+    size: int,
+    project: Optional[Callable[[Sequence], Sequence]] = None,
+    *,
+    skip_cache: bool = False,  # pylint: disable=unused-argument
 ) -> type:
     """Create an optimized immutable Sequence class for the specified size.
 
@@ -141,7 +167,7 @@ def create_mut_seq_class(
     size: int,
     project: Optional[Callable[[MutableSequence], MutableSequence]] = None,
     *,
-    skip_cache: bool = False,
+    skip_cache: bool = False,  # pylint: disable=unused-argument
 ) -> type:
     """Create an optimized MutableSequence class for the specified size.
 
@@ -167,7 +193,10 @@ def create_mut_seq_class(
 
 @cached(skipped_by="skip_cache")
 def create_set_class(
-    size: int, project: Optional[Callable[[Set], Set]] = None, *, skip_cache: bool = False
+    size: int,
+    project: Optional[Callable[[Set], Set]] = None,
+    *,
+    skip_cache: bool = False,  # pylint: disable=unused-argument
 ) -> type:
     """Create an optimized immutable Set class for the specified size.
 
@@ -189,7 +218,7 @@ def create_mut_set_class(
     size: int,
     project: Optional[Callable[[MutableSet], MutableSet]] = None,
     *,
-    skip_cache: bool = False,
+    skip_cache: bool = False,  # pylint: disable=unused-argument
 ) -> type:
     """Create an optimized MutableSet class for the specified size.
 
@@ -214,7 +243,11 @@ def create_mut_set_class(
 
 
 @cached(skipped_by="skip_cache")
-def create_mapping_class(size: int, *, skip_cache: bool = False) -> type:
+def create_mapping_class(
+    size: int,
+    *,
+    skip_cache: bool = False,  # pylint: disable=unused-argument
+) -> type:
     """Create an optimized immutable Mapping class for the specified size.
 
     Args:
@@ -230,7 +263,11 @@ def create_mapping_class(size: int, *, skip_cache: bool = False) -> type:
 
 
 @cached(skipped_by="skip_cache")
-def create_mut_mapping_class(size: int, *, skip_cache: bool = False) -> type:
+def create_mut_mapping_class(
+    size: int,
+    *,
+    skip_cache: bool = False,  # pylint: disable=unused-argument
+) -> type:
     """Create an optimized MutableMapping class for the specified size.
 
     The created class supports overflow to standard dict when key-value pairs

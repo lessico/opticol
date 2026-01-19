@@ -1,3 +1,5 @@
+"""Test the memory optimized Sequence implementation for equivalence with builtins."""
+
 from collections.abc import Callable, Sequence
 from typing import Any
 
@@ -118,7 +120,7 @@ def test_seq_len():
     harness(
         [3.14],
         [len],
-    ),
+    )
 
     harness(
         [3.14, 2.71],

@@ -1,7 +1,9 @@
+"""Defines shared tests functionality like a harness for validation implementation equivalence."""
+
 from collections.abc import Iterator, Sequence
 from typing import Any, Callable
 
-type Factory[C] = Callable[[C], C]
+type Factory[T] = Callable[[T], T]
 
 
 def _success_label(success: bool) -> str:
