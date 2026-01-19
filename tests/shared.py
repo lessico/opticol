@@ -47,7 +47,7 @@ def _assert_eq_op(
     """
     assert unk[0] == ref[0], (
         f"The operation at index {op_idx} {_success_label(unk[0])} on the factory at index "
-        f"{unk_idx} with result '{ref[1]}' while the first factory {_success_label(ref[0])} "
+        f"{unk_idx} with result '{unk[1]}' while the first factory {_success_label(ref[0])} "
         f"with result {ref[1]}."
     )
 
