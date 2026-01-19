@@ -3,7 +3,7 @@ import sys
 from typing import Any
 
 from opticol.factory import create_mut_seq_class
-from tests import eq, shared
+from tests import seq, shared
 
 
 def harness[T](
@@ -27,11 +27,10 @@ def harness[T](
             into available slots (size > len(seed)).
     """
     sizes = internal_sizes if internal_sizes is not None else [len(seed)]
-    factories: list[shared.Factory[MutableSequence[T]]] = [list] + [create_mut_seq_class(size) for size in sizes]
-    shared.harness(seed, factories, ops, eq.seq, eq.seq_op_result)
-
-
-# Operation wrappers for MutableSequence methods
+    factories: list[shared.Factory[MutableSequence[T]]] = [list] + [
+        create_mut_seq_class(size) for size in sizes
+    ]
+    shared.harness(seed, factories, ops, seq.eq, seq.eq_op_result)
 
 
 def getitem[T](key: int | slice) -> Callable[[MutableSequence[T]], T | MutableSequence[T]]:
@@ -153,9 +152,6 @@ def count[T](val: Any) -> Callable[[MutableSequence[T]], int]:
     return lambda s: s.count(val)
 
 
-# Tests for abstract methods: __getitem__, __setitem__, __delitem__, __len__, insert
-
-
 def test_mut_seq_len():
     """Test that optimized mutable sequences have the same len semantics as list."""
     harness([], [len])
@@ -231,9 +227,6 @@ def test_mut_seq_insert():
 
     # Insert into empty
     harness([], [insert(0, 100), len, getitem(0)])
-
-
-# Tests for Sequence mixin methods: __contains__, __iter__, __reversed__, index, count
 
 
 def test_mut_seq_contains():

@@ -2,7 +2,7 @@ from collections.abc import Iterator, Sequence
 from typing import Any
 
 
-def seq(seq1: Sequence, seq2: Sequence) -> bool:
+def eq(seq1: Sequence, seq2: Sequence) -> bool:
     """
     Return if two sequences are identical at the Sequence interface level.
 
@@ -25,7 +25,7 @@ def seq(seq1: Sequence, seq2: Sequence) -> bool:
     return True
 
 
-def seq_op_result(first: Any, second: Any, materialized_cache: dict[Iterator, list]) -> bool:
+def eq_op_result(first: Any, second: Any, materialized_cache: dict[Iterator, list]) -> bool:
     """
     Checks if the result of two Sequence operations are identical.
 
@@ -53,9 +53,9 @@ def seq_op_result(first: Any, second: Any, materialized_cache: dict[Iterator, li
             materialized_cache[second] = list(second)
         s = materialized_cache[second]
 
-        return seq(f, s)
+        return eq(f, s)
     elif isinstance(first, Sequence) and isinstance(second, Sequence):
-        return seq(first, second)
+        return eq(first, second)
 
     # The results of the operations are either elements from the sequence or a boolean.
     return first == second

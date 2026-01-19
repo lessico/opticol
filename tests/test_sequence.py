@@ -3,8 +3,7 @@ import sys
 from typing import Any
 
 from opticol.factory import create_seq_class
-from tests import eq, shared
-
+from tests import seq, shared
 
 
 def harness[T](
@@ -23,7 +22,7 @@ def harness[T](
             variants.
     """
     factories = [list, tuple, create_seq_class(len(seed))]
-    shared.harness(seed, factories, ops, eq.seq, eq.seq_op_result)
+    shared.harness(seed, factories, ops, seq.eq, seq.eq_op_result)
 
 
 def getitem[T](key: int | slice) -> Callable[[Sequence[T]], T | Sequence[T]]:

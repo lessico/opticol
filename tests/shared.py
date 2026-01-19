@@ -1,7 +1,6 @@
 from collections.abc import Iterator, Sequence
 from typing import Any, Callable
 
-
 type Factory[C] = Callable[[C], C]
 
 
@@ -27,7 +26,7 @@ def _assert_eq_op(
     unk_idx: int,
     op_idx: int,
     op_equality: Callable[[Any, Any, dict], bool],
-    materialized_cache: dict[Iterator, list]
+    materialized_cache: dict[Iterator, list],
 ) -> None:
     """
     Assert that two operations on a Sequence have the same output.
@@ -64,7 +63,7 @@ def harness[C](
     factories: Sequence[Factory[C]],
     ops: Sequence[Callable[[C], Any]],
     collection_equality: Callable[[C, C], bool],
-    op_equality: Callable[[Any, Any, dict], bool]
+    op_equality: Callable[[Any, Any, dict], bool],
 ) -> None:
     """
     The main test harness for Sequences and which can be used to establish API level equivalence.
@@ -105,4 +104,3 @@ def harness[C](
 
         for target in targets[1:]:
             assert collection_equality(targets[0], target)
-
