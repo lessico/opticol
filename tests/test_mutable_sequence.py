@@ -1,9 +1,9 @@
 from collections.abc import Callable, MutableSequence
-import sys
 from typing import Any
 
 from opticol.factory import create_mut_seq_class
 from tests import seq, shared
+from tests.seq import getitem, contains, index, count
 
 
 def harness[T](
@@ -31,11 +31,6 @@ def harness[T](
         create_mut_seq_class(size) for size in sizes
     ]
     shared.harness(seed, factories, ops, seq.eq, seq.eq_op_result)
-
-
-def getitem[T](key: int | slice) -> Callable[[MutableSequence[T]], T | MutableSequence[T]]:
-    """Create a callable which wraps getitem and calls it on the given MutableSequence."""
-    return lambda s: s[key]
 
 
 def setitem[T](key: int | slice, value: T) -> Callable[[MutableSequence[T]], None]:
@@ -133,23 +128,6 @@ def iadd[T](values: list[T]) -> Callable[[MutableSequence[T]], MutableSequence[T
         return s
 
     return op
-
-
-def contains[T](other: object, result: bool = True) -> Callable[[MutableSequence[T]], bool]:
-    """Create a callable which wraps contains and calls it on the given MutableSequence."""
-    return lambda s: (other in s == result)
-
-
-def index[T](
-    val: Any, start: int = 0, stop: int = sys.maxsize, /
-) -> Callable[[MutableSequence[T]], int]:
-    """Create a callable which wraps index and calls it on the given MutableSequence."""
-    return lambda s: s.index(val, start, stop)
-
-
-def count[T](val: Any) -> Callable[[MutableSequence[T]], int]:
-    """Create a callable which wraps count and calls it on the given MutableSequence."""
-    return lambda s: s.count(val)
 
 
 def test_mut_seq_len():

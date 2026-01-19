@@ -1,5 +1,6 @@
 from collections.abc import Iterator, Sequence
-from typing import Any
+import sys
+from typing import Any, Callable
 
 
 def eq(seq1: Sequence, seq2: Sequence) -> bool:
@@ -59,3 +60,23 @@ def eq_op_result(first: Any, second: Any, materialized_cache: dict[Iterator, lis
 
     # The results of the operations are either elements from the sequence or a boolean.
     return first == second
+
+
+def getitem[T](key: int | slice) -> Callable[[Sequence[T]], T | Sequence[T]]:
+    """Create a callable which wraps getitem and calls it on the given Sequence."""
+    return lambda s: s[key]
+
+
+def contains[T](other: object, result: bool = True) -> Callable[[Sequence[T]], bool]:
+    """Create a callable which wraps contains and calls it on the given Sequence."""
+    return lambda s: (other in s == result)
+
+
+def index[T](val: Any, start: int = 0, stop: int = sys.maxsize, /) -> Callable[[Sequence[T]], int]:
+    """Create a callable which wraps index and calls it on the given Sequence."""
+    return lambda s: s.index(val, start, stop)
+
+
+def count[T](val: Any) -> Callable[[Sequence[T]], int]:
+    """Create a callable which wraps count and calls it on the given Sequence."""
+    return lambda s: s.count(val)

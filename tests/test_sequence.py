@@ -1,9 +1,9 @@
 from collections.abc import Callable, Sequence
-import sys
 from typing import Any
 
 from opticol.factory import create_seq_class
 from tests import seq, shared
+from tests.seq import getitem, contains, index, count
 
 
 def harness[T](
@@ -23,26 +23,6 @@ def harness[T](
     """
     factories = [list, tuple, create_seq_class(len(seed))]
     shared.harness(seed, factories, ops, seq.eq, seq.eq_op_result)
-
-
-def getitem[T](key: int | slice) -> Callable[[Sequence[T]], T | Sequence[T]]:
-    """Create a callable which wraps getitem and calls it on the given Sequence."""
-    return lambda s: s[key]
-
-
-def contains[T](other: object, result: bool = True) -> Callable[[Sequence[T]], bool]:
-    """Create a callable which wraps contains and calls it on the given Sequence."""
-    return lambda s: (other in s == result)
-
-
-def index[T](val: Any, start: int = 0, stop: int = sys.maxsize, /) -> Callable[[Sequence[T]], int]:
-    """Create a callable which wraps index and calls it on the given Sequence."""
-    return lambda s: s.index(val, start, stop)
-
-
-def count[T](val: Any) -> Callable[[Sequence[T]], int]:
-    """Create a callable which wraps count and calls it on the given Sequence."""
-    return lambda s: s.count(val)
 
 
 def test_seq_getitem_indices():
