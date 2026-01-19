@@ -184,40 +184,74 @@ def test_seq_contains():
 
 def test_seq_iter():
     """Test that optimized sequences have the same iter semantics as builtins."""
-    harness([], [iter])
+    harness(
+        [],
+        [iter],
+    )
 
-    harness([True], [iter])
+    harness(
+        [True],
+        [iter],
+    )
 
-    harness([False, True], [iter])
+    harness(
+        [False, True],
+        [iter],
+    )
 
-    harness([3.14, 2.71, -1], [iter])
+    harness(
+        [3.14, 2.71, -1],
+        [iter],
+    )
 
 
 def test_seq_reversed():
     """Test that optimized sequences have the same reversed semantics as builtins."""
-    harness([], [reversed])
+    harness(
+        [],
+        [reversed],
+    )
 
-    harness([True], [reversed])
+    harness(
+        [True],
+        [reversed],
+    )
 
-    harness([False, True], [reversed])
+    harness(
+        [False, True],
+        [reversed],
+    )
 
-    harness([3.14, 2.71, -1], [reversed])
+    harness(
+        [3.14, 2.71, -1],
+        [reversed],
+    )
 
 
 def test_seq_index():
     """Test that optimized sequences have the same index semantics as builtins."""
-    harness([], [index(0), index(-1), index(4)])
+    harness(
+        [],
+        [index(0), index(-1), index(4)],
+    )
 
-    harness([10, 11], [index(10), index(9), index(11, 1), index(11, 0, 0)])
+    harness(
+        [10, 11],
+        [index(10), index(9), index(11, 1), index(11, 0, 0)],
+    )
 
 
 def test_seq_index_negative_bounds():
     """Test that optimized sequences handle negative start/stop for index."""
     harness(
-        [10, 20, 30, 40, 50], [index(30, -3), index(50, -2), index(10, -5, -1), index(20, -4, 2)]
+        [10, 20, 30, 40, 50],
+        [index(30, -3), index(50, -2), index(10, -5, -1), index(20, -4, 2)],
     )
 
-    harness([1, 2, 3], [index(1, -2), index(3, 0, -1)])
+    harness(
+        [1, 2, 3],
+        [index(1, -2), index(3, 0, -1)],
+    )
 
 
 def test_seq_index_duplicates():
@@ -241,11 +275,20 @@ def test_seq_index_duplicates():
 def test_seq_count():
     """Test that optimized sequences have the same count semantics as builtins."""
 
-    harness([], [count(1), count(None)])
+    harness(
+        [],
+        [count(1), count(None)],
+    )
 
-    harness([None], [count(1), count(None)])
+    harness(
+        [None],
+        [count(1), count(None)],
+    )
 
-    harness([1, 1, None], [count(1), count(None)])
+    harness(
+        [1, 1, None],
+        [count(1), count(None)],
+    )
 
     harness(
         [7, 7, 7, 7, 7],
@@ -258,7 +301,10 @@ def test_seq_count():
         [count(True), count(1), count(False), count(0)],
     )
 
-    harness([None, None], [count(None)])
+    harness(
+        [None, None],
+        [count(None)],
+    )
 
 
 def test_seq_larger_sequences():
