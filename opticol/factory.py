@@ -35,22 +35,30 @@ from opticol._sequence import OptimizedMutableSequenceMeta, OptimizedSequenceMet
 from opticol._set import OptimizedMutableSetMeta, OptimizedSetMeta
 
 P = ParamSpec("P")
-R = TypeVar("R", covariant = True)
+R_co = TypeVar("R_co", covariant=True)
 
-class WithCounter(Protocol[P, R]):
+
+class _WithCounter(Protocol[P, R_co]):
+    """
+    Defines a callable object that includes a counter member, for use with the following decorator.
+    """
+
     counter: int
-    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R: ...
 
-def with_counter(func: Callable[P, R]) -> WithCounter[P, R]:
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R_co: ...
+
+
+def with_counter(func: Callable[P, R_co]) -> _WithCounter[P, R_co]:
     """Generic type-safe decorator that adds counter."""
 
     @functools.wraps(func)
     def wrapped(*args, **kwargs):
-        wrapped.counter += 1
+        wrapped.counter += 1  # pylint: disable=no-member
         return func(*args, **kwargs)
+
     setattr(wrapped, "counter", 0)
 
-    return wrapped # type: ignore
+    return wrapped  # type: ignore
 
 
 @with_counter
