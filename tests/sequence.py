@@ -1,4 +1,4 @@
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, MutableSequence, Sequence
 import sys
 from typing import Any, Callable
 
@@ -81,3 +81,94 @@ def index[T](val: Any, start: int = 0, stop: int = sys.maxsize, /) -> Callable[[
 def count[T](val: Any) -> Callable[[Sequence[T]], int]:
     """Create a callable which wraps count and calls it on the given Sequence."""
     return lambda s: s.count(val)
+
+
+# Operation wrappers for MutableSequence methods
+
+
+def setitem[T](key: int | slice, value: T) -> Callable[[MutableSequence[T]], None]:
+    """Create a callable which wraps setitem and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence[T]) -> None:
+        s[key] = value
+
+    return op
+
+
+def delitem(key: int | slice) -> Callable[[MutableSequence], None]:
+    """Create a callable which wraps delitem and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence) -> None:
+        del s[key]
+
+    return op
+
+
+def insert[T](idx: int, value: T) -> Callable[[MutableSequence[T]], None]:
+    """Create a callable which wraps insert and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence[T]) -> None:
+        s.insert(idx, value)
+
+    return op
+
+
+def append[T](value: T) -> Callable[[MutableSequence[T]], None]:
+    """Create a callable which wraps append and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence[T]) -> None:
+        s.append(value)
+
+    return op
+
+
+def clear() -> Callable[[MutableSequence], None]:
+    """Create a callable which wraps clear and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence) -> None:
+        s.clear()
+
+    return op
+
+
+def reverse() -> Callable[[MutableSequence], None]:
+    """Create a callable which wraps reverse and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence) -> None:
+        s.reverse()
+
+    return op
+
+
+def extend[T](values: list[T]) -> Callable[[MutableSequence[T]], None]:
+    """Create a callable which wraps extend and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence[T]) -> None:
+        s.extend(values)
+
+    return op
+
+
+def pop(idx: int | None = None) -> Callable[[MutableSequence], Any]:
+    """Create a callable which wraps pop and calls it on the given MutableSequence."""
+    if idx is None:
+        idx = -1
+    return lambda s: s.pop(idx)
+
+
+def remove[T](value: T) -> Callable[[MutableSequence[T]], None]:
+    """Create a callable which wraps remove and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence[T]) -> None:
+        s.remove(value)
+
+    return op
+
+
+def iadd[T](values: list[T]) -> Callable[[MutableSequence[T]], MutableSequence[T]]:
+    """Create a callable which wraps __iadd__ and calls it on the given MutableSequence."""
+
+    def op(s: MutableSequence[T]) -> None:
+        s += values
+
+    return op

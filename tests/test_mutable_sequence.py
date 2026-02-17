@@ -4,8 +4,23 @@ from collections.abc import Callable, MutableSequence
 from typing import Any
 
 from opticol.factory import create_mut_seq_class
-from tests import seq, shared
-from tests.seq import getitem, contains, index, count
+from tests import sequence, shared
+from tests.sequence import (
+    getitem,
+    contains,
+    index,
+    count,
+    setitem,
+    delitem,
+    insert,
+    append,
+    clear,
+    reverse,
+    extend,
+    pop,
+    remove,
+    iadd,
+)
 
 
 def harness[T](
@@ -32,95 +47,7 @@ def harness[T](
     factories: list[shared.Factory[MutableSequence[T]]] = [list] + [
         create_mut_seq_class(size) for size in sizes
     ]
-    shared.harness(seed, factories, ops, seq.eq, seq.eq_op_result)
-
-
-def setitem[T](key: int | slice, value: T) -> Callable[[MutableSequence[T]], None]:
-    """Create a callable which wraps setitem and calls it on the given MutableSequence."""
-
-    def op(s):
-        s[key] = value
-
-    return op
-
-
-def delitem(key: int | slice) -> Callable[[MutableSequence], None]:
-    """Create a callable which wraps delitem and calls it on the given MutableSequence."""
-
-    def op(s):
-        del s[key]
-
-    return op
-
-
-def insert[T](idx: int, value: T) -> Callable[[MutableSequence[T]], None]:
-    """Create a callable which wraps insert and calls it on the given MutableSequence."""
-
-    def op(s):
-        s.insert(idx, value)
-
-    return op
-
-
-def append[T](value: T) -> Callable[[MutableSequence[T]], None]:
-    """Create a callable which wraps append and calls it on the given MutableSequence."""
-
-    def op(s):
-        s.append(value)
-
-    return op
-
-
-def clear() -> Callable[[MutableSequence], None]:
-    """Create a callable which wraps clear and calls it on the given MutableSequence."""
-
-    def op(s):
-        s.clear()
-
-    return op
-
-
-def reverse() -> Callable[[MutableSequence], None]:
-    """Create a callable which wraps reverse and calls it on the given MutableSequence."""
-
-    def op(s):
-        s.reverse()
-
-    return op
-
-
-def extend[T](values: list[T]) -> Callable[[MutableSequence[T]], None]:
-    """Create a callable which wraps extend and calls it on the given MutableSequence."""
-
-    def op(s):
-        s.extend(values)
-
-    return op
-
-
-def pop(idx: int | None = None) -> Callable[[MutableSequence], Any]:
-    """Create a callable which wraps pop and calls it on the given MutableSequence."""
-    if idx is None:
-        idx = -1
-    return lambda s: s.pop(idx)
-
-
-def remove[T](value: T) -> Callable[[MutableSequence[T]], None]:
-    """Create a callable which wraps remove and calls it on the given MutableSequence."""
-
-    def op(s):
-        s.remove(value)
-
-    return op
-
-
-def iadd[T](values: list[T]) -> Callable[[MutableSequence[T]], MutableSequence[T]]:
-    """Create a callable which wraps __iadd__ and calls it on the given MutableSequence."""
-
-    def op(s):
-        s += values
-
-    return op
+    shared.harness(seed, factories, ops, sequence.eq, sequence.eq_op_result)
 
 
 def test_mut_seq_len():

@@ -4,8 +4,8 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from opticol.factory import create_seq_class
-from tests import seq, shared
-from tests.seq import getitem, contains, index, count
+from tests import sequence, shared
+from tests.sequence import getitem, contains, index, count
 
 
 def harness[T](
@@ -24,7 +24,7 @@ def harness[T](
             variants.
     """
     factories = [list, tuple, create_seq_class(len(seed))]
-    shared.harness(seed, factories, ops, seq.eq, seq.eq_op_result)
+    shared.harness(seed, factories, ops, sequence.eq, sequence.eq_op_result)
 
 
 def test_seq_getitem_indices():
