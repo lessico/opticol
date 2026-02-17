@@ -198,7 +198,12 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             def _from_iterable(_, it):
                 return project(set(it))
 
-            namespace["_from_iterable"] = classmethod(_from_iterable)
+        else:
+
+            def _from_iterable(_, it):
+                return set(it)
+
+        namespace["_from_iterable"] = classmethod(_from_iterable)
 
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__

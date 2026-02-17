@@ -164,7 +164,21 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
             )
 
         def __len__(self):
-            return OptimizedCollectionMeta._mut_len(self, slots, dict, lambda d: d, None)
+            return OptimizedCollectionMeta._mut_len(self, slots, dict, len, None)
+
+        def popitem(self):
+            first = getattr(self, slots[0])
+            if isinstance(first, dict):
+                return first.popitem()
+
+            # Walk backward through slots to find the last non-empty slot (LIFO order)
+            for slot in reversed(slots):
+                item = getattr(self, slot)
+                if item is not None:
+                    setattr(self, slot, None)
+                    return item
+
+            raise KeyError
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]
@@ -177,3 +191,6 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         namespace["__iter__"] = __iter__
         namespace["__len__"] = __len__
         namespace["__repr__"] = __repr__
+
+        # Override mixin popitem to match dict's LIFO ordering
+        namespace["popitem"] = popitem

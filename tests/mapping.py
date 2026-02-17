@@ -1,6 +1,13 @@
-"""Equality checks and operation wrappers for Mapping tests."""
+"""Equality checks and operation wrappers for Mapping and MutableMapping tests."""
 
-from collections.abc import Iterator, ItemsView, KeysView, Mapping, MappingView, ValuesView
+from collections.abc import (
+    Iterator,
+    ItemsView,
+    KeysView,
+    Mapping,
+    MutableMapping,
+    ValuesView,
+)
 from typing import Any, Callable
 
 
@@ -27,7 +34,20 @@ def eq(m1: Mapping, m2: Mapping) -> bool:
     return True
 
 
-def eq_view(v1: MappingView, v2: MappingView) -> bool:
+type MappingRelatedView = ItemsView | KeysView | ValuesView
+
+
+def eq_view[V: MappingRelatedView](v1: V, v2: V) -> bool:
+    """
+    Checks if two views created from a map are identical.
+
+    Args:
+        v1: The first view to compare for equality.
+        v2: The second view t compare for equality.
+
+    Returns:
+        True if the two views are identical.
+    """
     if len(v1) != len(v2):
         return False
 
@@ -52,7 +72,8 @@ def eq_op_result(first: Any, second: Any, materialized_cache: dict[Iterator, lis
     Args:
         first: The first result to compare.
         second: The second result to compare.
-        materialized_cache: The per harness cache of iterators to their in-memory materialized version.
+        materialized_cache: The per harness cache of iterators to their in-memory materialized
+            version.
 
     Returns:
         True if the results of the operation are identical, and False otherwise.
@@ -75,7 +96,7 @@ def eq_op_result(first: Any, second: Any, materialized_cache: dict[Iterator, lis
     ):
         return eq_view(first, second)
 
-    # The results of the operations are values, booleans, or None.
+    # The results of the operations are values, booleans, tuples, or None.
     return first == second
 
 
@@ -115,3 +136,63 @@ def items[K, V]() -> Callable[[Mapping[K, V]], ItemsView[K, V]]:
 def eq_op[K, V](other: Mapping[K, V], expected: bool = True) -> Callable[[Mapping[K, V]], bool]:
     """Create a callable which wraps __eq__/__ne__ and calls it on the given Mapping."""
     return lambda m: (m == other) == expected
+
+
+# Operation wrappers for MutableMapping methods
+
+
+def setitem[K, V](key: K, value: V) -> Callable[[MutableMapping[K, V]], None]:
+    """Create a callable which wraps __setitem__ and calls it on the given MutableMapping."""
+
+    def op(m):
+        m[key] = value
+
+    return op
+
+
+def delitem[K](key: K) -> Callable[[MutableMapping[K, Any]], None]:
+    """Create a callable which wraps __delitem__ and calls it on the given MutableMapping."""
+
+    def op(m):
+        del m[key]
+
+    return op
+
+
+def pop[K, V](key: K, *args: V) -> Callable[[MutableMapping[K, V]], V]:
+    """Create a callable which wraps pop and calls it on the given MutableMapping.
+
+    An optional default value can be provided as a positional argument, matching the
+    signature of MutableMapping.pop(key[, default]).
+    """
+    return lambda m: m.pop(key, *args)
+
+
+def popitem[K, V]() -> Callable[[MutableMapping[K, V]], tuple[K, V]]:
+    """Create a callable which wraps popitem and calls it on the given MutableMapping."""
+    return lambda m: m.popitem()
+
+
+def clear() -> Callable[[MutableMapping], None]:
+    """Create a callable which wraps clear and calls it on the given MutableMapping."""
+
+    def op(m):
+        m.clear()
+
+    return op
+
+
+def update[K, V](
+    other: Mapping[K, V] | None = None, **kwargs: V
+) -> Callable[[MutableMapping[K, V]], None]:
+    """Create a callable which wraps update and calls it on the given MutableMapping."""
+
+    def op(m):
+        m.update(other or {}, **kwargs)
+
+    return op
+
+
+def setdefault[K](key: K, default: Any = None) -> Callable[[MutableMapping[K, Any]], Any]:
+    """Create a callable which wraps setdefault and calls it on the given MutableMapping."""
+    return lambda m: m.setdefault(key, default)

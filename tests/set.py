@@ -1,6 +1,6 @@
-"""Equality checks and operation wrappers for Set tests."""
+"""Equality checks and operation wrappers for Set and MutableSet tests."""
 
-from collections.abc import Iterator, Set
+from collections.abc import Iterator, MutableSet, Set
 from typing import Any, Callable
 
 
@@ -118,3 +118,83 @@ def sub[T](other: Set[T]) -> Callable[[Set[T]], Set[T]]:
 def xor[T](other: Set[T]) -> Callable[[Set[T]], Set[T]]:
     """Create a callable which wraps __xor__ (symmetric_difference) and calls it on the given Set."""
     return lambda s: s ^ other
+
+
+# Operation wrappers for MutableSet methods
+
+
+def add[T](value: T) -> Callable[[MutableSet[T]], None]:
+    """Create a callable which wraps add and calls it on the given MutableSet."""
+
+    def op(s):
+        s.add(value)
+
+    return op
+
+
+def discard[T](value: T) -> Callable[[MutableSet[T]], None]:
+    """Create a callable which wraps discard and calls it on the given MutableSet."""
+
+    def op(s):
+        s.discard(value)
+
+    return op
+
+
+def remove[T](value: T) -> Callable[[MutableSet[T]], None]:
+    """Create a callable which wraps remove and calls it on the given MutableSet."""
+
+    def op(s):
+        s.remove(value)
+
+    return op
+
+
+def pop[T]() -> Callable[[MutableSet[T]], T]:
+    """Create a callable which wraps pop and calls it on the given MutableSet."""
+    return lambda s: s.pop()
+
+
+def clear() -> Callable[[MutableSet], None]:
+    """Create a callable which wraps clear and calls it on the given MutableSet."""
+
+    def op(s):
+        s.clear()
+
+    return op
+
+
+def ior[T](other: Set[T]) -> Callable[[MutableSet[T]], None]:
+    """Create a callable which wraps __ior__ (|=) and calls it on the given MutableSet."""
+
+    def op(s):
+        s |= other
+
+    return op
+
+
+def iand[T](other: Set[T]) -> Callable[[MutableSet[T]], None]:
+    """Create a callable which wraps __iand__ (&=) and calls it on the given MutableSet."""
+
+    def op(s):
+        s &= other
+
+    return op
+
+
+def ixor[T](other: Set[T]) -> Callable[[MutableSet[T]], None]:
+    """Create a callable which wraps __ixor__ (^=) and calls it on the given MutableSet."""
+
+    def op(s):
+        s ^= other
+
+    return op
+
+
+def isub[T](other: Set[T]) -> Callable[[MutableSet[T]], None]:
+    """Create a callable which wraps __isub__ (-=) and calls it on the given MutableSet."""
+
+    def op(s):
+        s -= other
+
+    return op
