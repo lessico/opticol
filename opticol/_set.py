@@ -52,25 +52,38 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, s):
-            if len(s) != internal_size:
-                raise ValueError(
-                    f"Expected provided Set to have exactly {internal_size} elements but it has "
-                    f"{len(s)}."
-                )
+        ns: dict[str, Any] = {"slots": slots}
 
-            for slot, v in zip(slots, s, strict=True):
-                setattr(self, slot, v)
+        if internal_size == 0:
+            expansion_ir = ""
+        else:
+            expansion_ir = "(" + ",".join(f"self.{slots[i]}" for i in range(internal_size)) + ",) = s"
 
-        def __contains__(self, value):
-            for slot in slots:
-                if getattr(self, slot) == value:
-                    return True
-            return False
+        init_ir = f"""
+def __init__(self, s):
+    if len(s) != {internal_size}:
+        raise ValueError(
+            f"Expected provided Set to have exactly {internal_size} elements but it has {{len(s)}}."
+        )
+    {expansion_ir}
+"""
+        exec(init_ir, ns)
 
-        def __iter__(self):
-            for slot in slots:
-                yield getattr(self, slot)
+        contains_ir = f"""
+def __contains__(self, value):
+    {"\n    ".join(f"if self.{slots[i]} == value: return True" for i in range(internal_size))}
+    return False
+"""
+        exec(contains_ir, ns)
+
+        if internal_size == 0:
+            iter_ir = "def __iter__(self): yield from ()"
+        else:
+            iter_ir = f"""
+def __iter__(self):
+    {"\n    ".join(f"yield self.{slots[i]}" for i in range(internal_size))}
+"""
+        exec(iter_ir, ns)
 
         def __len__(_):
             return internal_size
@@ -92,9 +105,9 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
 
         namespace["_from_iterable"] = classmethod(_from_iterable)
 
-        namespace["__init__"] = __init__
-        namespace["__contains__"] = __contains__
-        namespace["__iter__"] = __iter__
+        namespace["__init__"] = ns["__init__"]
+        namespace["__contains__"] = ns["__contains__"]
+        namespace["__iter__"] = ns["__iter__"]
         namespace["__len__"] = __len__
         namespace["__repr__"] = __repr__
 
