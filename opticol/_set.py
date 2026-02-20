@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
+from opticol import _codegen as codegen
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
@@ -54,35 +55,31 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
 
         ns: dict[str, Any] = {"slots": slots}
 
-        if internal_size == 0:
-            expansion_ir = ""
-        else:
-            expansion_ir = "(" + ",".join(f"self.{slots[i]}" for i in range(internal_size)) + ",) = s"
-
-        init_ir = f"""
-def __init__(self, s):
-    if len(s) != {internal_size}:
-        raise ValueError(
-            f"Expected provided Set to have exactly {internal_size} elements but it has {{len(s)}}."
-        )
-    {expansion_ir}
-"""
+        expansion_ir = f"({",".join(f"self.{slot}" for slot in slots)},) = s"
+        init_ir = codegen.rootit(f"""
+            def __init__(self, s):
+                if len(s) != {internal_size}:
+                    raise ValueError(
+                        f"Expected provided Set to have exactly {internal_size} elements but it has {{len(s)}}."
+                    )
+                {codegen.guard(internal_size > 0, expansion_ir)}
+            """)
         exec(init_ir, ns)
 
-        contains_ir = f"""
-def __contains__(self, value):
-    {"\n    ".join(f"if self.{slots[i]} == value: return True" for i in range(internal_size))}
-    return False
-"""
+        contains_ir = codegen.rootit(f"""
+            def __contains__(self, value):
+                {codegen.spliced(4, (f"if self.{slot} == value: return True" for slot in slots))}
+                return False
+            """)
         exec(contains_ir, ns)
 
         if internal_size == 0:
             iter_ir = "def __iter__(self): yield from ()"
         else:
-            iter_ir = f"""
-def __iter__(self):
-    {"\n    ".join(f"yield self.{slots[i]}" for i in range(internal_size))}
-"""
+            iter_ir = codegen.rootit(f"""
+                def __iter__(self):
+                    {codegen.spliced(5, (f"yield self.{slot}" for slot in slots))}
+                """)
         exec(iter_ir, ns)
 
         def __len__(_):

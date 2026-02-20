@@ -3,3 +3,5 @@
 *.pyc
 opticol.egg-info/
 dist/
+
+.benchmarks
