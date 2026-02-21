@@ -28,7 +28,7 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-    ) -> type:
+    ) -> type[Mapping]:
         return super().__new__(
             mcs,
             name,
@@ -98,7 +98,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         namespace: dict[str, Any],
         *,
         internal_size: int,
-    ) -> type:
+    ) -> type[MutableMapping]:
         return super().__new__(
             mcs,
             name,

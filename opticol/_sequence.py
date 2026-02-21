@@ -48,7 +48,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
         *,
         internal_size: int,
         project: Optional[Callable[[Sequence], Sequence]],
-    ) -> type:
+    ) -> type[Sequence]:
         return super().__new__(
             mcs,
             name,
@@ -122,7 +122,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
         *,
         internal_size: int,
         project: Optional[Callable[[MutableSequence], MutableSequence]],
-    ) -> type:
+    ) -> type[MutableSequence]:
         return super().__new__(
             mcs,
             name,

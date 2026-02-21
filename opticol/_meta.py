@@ -31,7 +31,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
         internal_size: int,
         project: Optional[Callable[[C], C]],
         collection_name: str,
-    ) -> type:
+    ) -> type[C]:
         """Create a new optimized collection class with generated slots.
 
         Args:
@@ -58,7 +58,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
         mcs.add_methods(slots, namespace, project)
 
-        return super().__new__(mcs, name, bases, namespace)
+        return super().__new__(mcs, name, bases, namespace)  # type: ignore[return-value]
 
     @staticmethod
     @abstractmethod

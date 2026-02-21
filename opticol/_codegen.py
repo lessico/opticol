@@ -10,9 +10,11 @@ def guard(flag: bool, code: str) -> str:
         return code
     return ""
 
+
 def spliced(level: int, lines: Iterable[str]) -> str:
     sep = "\n" + ("    " * level)
     return sep.join(lines)
+
 
 def rootit(code: str) -> str:
     """
