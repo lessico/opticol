@@ -39,3 +39,14 @@ def test_bench_iter(benchmark, fixture):
         [el for el in optimized]
 
     benchmark(run)
+
+@pytest.mark.parametrize("fixture", basic_int_sets)
+def test_bench_len(benchmark, fixture):
+    l = len(fixture)
+    c = create_set_class(l)
+    optimized = c(fixture)
+
+    def run():
+        len(optimized)
+
+    benchmark(run)
