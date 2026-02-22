@@ -1,12 +1,15 @@
 .PHONY: format lint test
 
 format:
-	black opticol tests
+	black opticol tests benchmarks
 
 lint:
-	black --check opticol tests
-	mypy opticol tests
-	pylint opticol tests
+	black --check opticol tests benchmarks
+	mypy opticol tests benchmarks
+	pylint opticol tests benchmarks
 
 test:
-	pytest tests
+	pytest
+
+bench:
+	pytest benchmarks/

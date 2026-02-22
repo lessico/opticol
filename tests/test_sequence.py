@@ -23,7 +23,7 @@ def harness[T](
         ops: The operations whose behavior needs to be validated across builtins and optimized
             variants.
     """
-    factories = [list, tuple, create_seq_class(len(seed))]
+    factories: Sequence[shared.Factory[Sequence]] = [list, tuple, create_seq_class(len(seed))]
     shared.harness(seed, factories, ops, sequence.eq, sequence.eq_op_result)
 
 

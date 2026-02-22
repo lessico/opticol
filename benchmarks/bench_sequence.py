@@ -6,6 +6,7 @@ MAX_FIXTURE_SIZE = 10
 
 basic_int_lists = [list(range(i)) for i in range(1, MAX_FIXTURE_SIZE)]
 
+
 @pytest.mark.parametrize("fixture", basic_int_lists)
 def test_bench_get_random_item(benchmark, fixture):
     l = len(fixture)
@@ -18,6 +19,7 @@ def test_bench_get_random_item(benchmark, fixture):
         optimized[i % l]
 
     benchmark(run)
+
 
 @pytest.mark.parametrize("fixture", basic_int_lists)
 def test_bench_set_random_item(benchmark, fixture):

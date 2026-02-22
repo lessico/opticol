@@ -58,7 +58,7 @@ def with_counter(func: Callable[P, R_co]) -> _WithCounter[P, R_co]:
 
     setattr(wrapped, "counter", 0)
 
-    return wrapped  # type: ignore
+    return wrapped  # type: ignore[return-value]
 
 
 @with_counter

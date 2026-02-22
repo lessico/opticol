@@ -1,6 +1,6 @@
 """Test the memory optimized Set implementation for equivalence with builtins."""
 
-from collections.abc import Callable, Set
+from collections.abc import Callable, Set, Sequence
 from typing import Any
 
 from opticol.factory import create_set_class
@@ -23,7 +23,7 @@ def harness[T](
         ops: The operations whose behavior needs to be validated across builtins and optimized
             variants.
     """
-    factories = [set, frozenset, create_set_class(len(seed))]
+    factories: Sequence[shared.Factory[Set]] = [set, frozenset, create_set_class(len(seed))]
     shared.harness(seed, factories, ops, set_.eq, set_.eq_op_result)
 
 
