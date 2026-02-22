@@ -30,7 +30,7 @@ MAX_FIXTURE_SIZE = 10
 immutable_set = BenchmarkCaseCollection(
     [
         BenchmarkCase[Set]("immutable", i, create_set_class, range)
-        for i in range(2, MAX_FIXTURE_SIZE)
+        for i in range(1, MAX_FIXTURE_SIZE)
     ]
 )
 mutable_set = BenchmarkCaseCollection(
