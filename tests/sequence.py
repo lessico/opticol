@@ -1,6 +1,6 @@
 from collections.abc import Iterable, Iterator, MutableSequence, Sequence
 import sys
-from typing import Any, Callable, overload
+from typing import Any, Callable
 
 
 def eq(seq1: Sequence, seq2: Sequence) -> bool:
