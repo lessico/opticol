@@ -18,6 +18,9 @@ class BenchmarkCase(Generic[C]):
 
 
 MAX_FIXTURE_SIZE = 10
+ITERATIONS = 20
+ROUNDS = 200000
+
 immutable_set_cases = [
     pytest.param(BenchmarkCase[Set]("immutable", i, create_set_class, range), id=f"immutable_{i}")
     for i in range(1, MAX_FIXTURE_SIZE)
@@ -46,7 +49,8 @@ def bench_init(benchmark, case: BenchmarkCase[MutableSet]):
     def run():
         c(seed)
 
-    benchmark(run)
+
+    benchmark.pedantic(run, rounds=ROUNDS, iterations=ITERATIONS)
 
 
 @pytest.mark.parametrize("case", all_cases)
@@ -60,7 +64,7 @@ def bench_contains(benchmark, case: BenchmarkCase[Set]):
     def run():
         next(values) in optimized
 
-    benchmark(run)
+    benchmark.pedantic(run, rounds=ROUNDS, iterations=ITERATIONS)
 
 
 @pytest.mark.parametrize("case", all_cases)
@@ -70,7 +74,7 @@ def bench_iter(benchmark, case: BenchmarkCase[Set]):
     def run():
         [el for el in optimized]
 
-    benchmark(run)
+    benchmark.pedantic(run, rounds=ROUNDS, iterations=ITERATIONS)
 
 
 @pytest.mark.parametrize("case", all_cases)
@@ -80,4 +84,4 @@ def bench_len(benchmark, case: BenchmarkCase[Set]):
     def run():
         len(optimized)
 
-    benchmark(run)
+    benchmark.pedantic(run, rounds=ROUNDS, iterations=ITERATIONS)
