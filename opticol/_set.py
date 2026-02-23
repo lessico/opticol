@@ -53,7 +53,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     ) -> None:
         internal_size = len(slots)
 
-        ns: dict[str, Any] = {"slots": slots}
+        ns: dict[str, Any] = {}
 
         expansion_ir = f"({",".join(f"self.{slot}" for slot in slots)},) = s"
         init_ir = codegen.rootit(f"""
