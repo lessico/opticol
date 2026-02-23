@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
+from opticol._codegen import def_fn, guard, rootit, spliced
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
@@ -52,25 +53,28 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, s):
-            if len(s) != internal_size:
-                raise ValueError(
-                    f"Expected provided Set to have exactly {internal_size} elements but it has "
-                    f"{len(s)}."
-                )
+        expansion_ir = f"({",".join(f"self.{slot}" for slot in slots)},) = s"
+        __init__ = def_fn(rootit(f"""
+            def __init__(self, s):
+                if len(s) != {internal_size}:
+                    raise ValueError(
+                        f"Expected provided Set to have exactly {internal_size} elements but it has {{len(s)}}."
+                    )
+                {guard(internal_size > 0, expansion_ir)}
+            """))
 
-            for slot, v in zip(slots, s, strict=True):
-                setattr(self, slot, v)
+        __contains__ = def_fn(rootit(f"""
+            def __contains__(self, value):
+                return {guard(internal_size > 0, " or ".join(f"self.{slot} == value" for slot in slots), "False")}
+            """))
 
-        def __contains__(self, value):
-            for slot in slots:
-                if getattr(self, slot) == value:
-                    return True
-            return False
-
-        def __iter__(self):
-            for slot in slots:
-                yield getattr(self, slot)
+        __iter__ = def_fn(rootit(f"""
+            def __iter__(self):
+                {guard(
+                    internal_size > 0,
+                    spliced(4, (f"yield self.{slot}" for slot in slots)),
+                    "yield from ()")}
+            """))
 
         def __len__(_):
             return internal_size
