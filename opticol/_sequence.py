@@ -80,6 +80,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
         def __getitem__(self, key):
             match key:
                 case int():
+                    key = _adjust_index(key, len(self))
                     return getattr(self, slots[key])
                 case slice():
                     indices = range(*key.indices(len(self)))
@@ -189,19 +190,9 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     )
 
         def __setitem__(self, key, value):
-            first = getattr(self, slots[0])
-            overflowed = isinstance(first, Overflow)
-
-            match key:
-                case int():
-                    if overflowed:
-                        first.data[key] = value
-                    else:
-                        setattr(self, slots[key], value)
-                case _:
-                    current = list(self)
-                    current[key] = value
-                    _assign(self, current)
+            current = list(self)
+            current[key] = value
+            _assign(self, current)
 
         def __delitem__(self, key):
             current = list(self)
