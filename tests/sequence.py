@@ -1,4 +1,4 @@
-from collections.abc import Iterator, MutableSequence, Sequence
+from collections.abc import Iterable, Iterator, MutableSequence, Sequence
 import sys
 from typing import Any, Callable
 
@@ -86,11 +86,11 @@ def count[T](val: Any) -> Callable[[Sequence[T]], int]:
 # Operation wrappers for MutableSequence methods
 
 
-def setitem[T](key: int | slice, value: T) -> Callable[[MutableSequence[T]], None]:
+def setitem[T](key: int | slice, value: T | Iterable[T]) -> Callable[[MutableSequence[T]], None]:
     """Create a callable which wraps setitem and calls it on the given MutableSequence."""
 
     def op(s: MutableSequence[T]) -> None:
-        s[key] = value
+        s[key] = value  # type: ignore
 
     return op
 
@@ -165,7 +165,7 @@ def remove[T](value: T) -> Callable[[MutableSequence[T]], None]:
     return op
 
 
-def iadd[T](values: list[T]) -> Callable[[MutableSequence[T]], MutableSequence[T]]:
+def iadd[T](values: list[T]) -> Callable[[MutableSequence[T]], None]:
     """Create a callable which wraps __iadd__ and calls it on the given MutableSequence."""
 
     def op(s: MutableSequence[T]) -> None:

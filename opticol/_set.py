@@ -33,7 +33,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
         *,
         internal_size: int,
         project: Optional[Callable[[Set], Set]],
-    ) -> type:
+    ) -> type[Set]:
         return super().__new__(
             mcs,
             name,
@@ -120,7 +120,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
         *,
         internal_size: int,
         project: Optional[Callable[[MutableSet], MutableSet]],
-    ) -> type:
+    ) -> type[MutableSet]:
         return super().__new__(
             mcs,
             name,

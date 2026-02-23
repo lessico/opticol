@@ -1,6 +1,6 @@
 """Test the memory optimized Mapping implementation for equivalence with builtins."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from opticol.factory import create_mapping_class
@@ -23,7 +23,7 @@ def harness[K, V](
         ops: The operations whose behavior needs to be validated across builtins and optimized
             variants.
     """
-    factories = [dict, create_mapping_class(len(seed))]
+    factories: Sequence[shared.Factory[Mapping]] = [dict, create_mapping_class(len(seed))]
     shared.harness(seed, factories, ops, mapping.eq, mapping.eq_op_result)
 
 

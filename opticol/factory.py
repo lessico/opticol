@@ -28,7 +28,7 @@ from collections.abc import (
     Set,
 )
 import functools
-from typing import Any, Optional, ParamSpec, Protocol, TypeVar, overload
+from typing import Any, Optional, ParamSpec, Protocol, TypeVar, cast, overload
 
 from opticol._mapping import OptimizedMappingMeta, OptimizedMutableMappingMeta
 from opticol._sequence import OptimizedMutableSequenceMeta, OptimizedSequenceMeta
@@ -58,7 +58,7 @@ def with_counter(func: Callable[P, R_co]) -> _WithCounter[P, R_co]:
 
     setattr(wrapped, "counter", 0)
 
-    return wrapped  # type: ignore
+    return wrapped  # type: ignore[return-value]
 
 
 @with_counter
@@ -142,7 +142,7 @@ def create_seq_class(
     project: Optional[Callable[[Sequence], Sequence]] = None,
     *,
     skip_cache: bool = False,  # pylint: disable=unused-argument
-) -> type:
+) -> type[Sequence]:
     """Create an optimized immutable Sequence class for the specified size.
 
     Args:
@@ -153,12 +153,15 @@ def create_seq_class(
     Returns:
         A Sequence class optimized for exactly 'size' elements.
     """
-    return OptimizedSequenceMeta(
-        _unique_cls_name(f"_Size{size}Sequence"),
-        (Sequence,),
-        {},
-        internal_size=size,
-        project=project,
+    return cast(
+        type[Sequence],
+        OptimizedSequenceMeta(
+            _unique_cls_name(f"_Size{size}Sequence"),
+            (Sequence,),
+            {},
+            internal_size=size,
+            project=project,
+        ),
     )
 
 
@@ -168,7 +171,7 @@ def create_mut_seq_class(
     project: Optional[Callable[[MutableSequence], MutableSequence]] = None,
     *,
     skip_cache: bool = False,  # pylint: disable=unused-argument
-) -> type:
+) -> type[MutableSequence]:
     """Create an optimized MutableSequence class for the specified size.
 
     The created class supports overflow to standard list when elements exceed
@@ -182,12 +185,15 @@ def create_mut_seq_class(
     Returns:
         A MutableSequence class optimized for up to 'size' elements.
     """
-    return OptimizedMutableSequenceMeta(
-        _unique_cls_name(f"_Size{size}MutableSequence"),
-        (MutableSequence,),
-        {},
-        internal_size=size,
-        project=project,
+    return cast(
+        type[MutableSequence],
+        OptimizedMutableSequenceMeta(
+            _unique_cls_name(f"_Size{size}MutableSequence"),
+            (MutableSequence,),
+            {},
+            internal_size=size,
+            project=project,
+        ),
     )
 
 
@@ -197,7 +203,7 @@ def create_set_class(
     project: Optional[Callable[[Set], Set]] = None,
     *,
     skip_cache: bool = False,  # pylint: disable=unused-argument
-) -> type:
+) -> type[Set]:
     """Create an optimized immutable Set class for the specified size.
 
     Args:
@@ -208,8 +214,11 @@ def create_set_class(
     Returns:
         A Set class optimized for exactly 'size' elements.
     """
-    return OptimizedSetMeta(
-        _unique_cls_name(f"_Size{size}Set"), (Set,), {}, internal_size=size, project=project
+    return cast(
+        type[Set],
+        OptimizedSetMeta(
+            _unique_cls_name(f"_Size{size}Set"), (Set,), {}, internal_size=size, project=project
+        ),
     )
 
 
@@ -219,7 +228,7 @@ def create_mut_set_class(
     project: Optional[Callable[[MutableSet], MutableSet]] = None,
     *,
     skip_cache: bool = False,  # pylint: disable=unused-argument
-) -> type:
+) -> type[MutableSet]:
     """Create an optimized MutableSet class for the specified size.
 
     The created class supports overflow to standard set when elements exceed
@@ -233,12 +242,15 @@ def create_mut_set_class(
     Returns:
         A MutableSet class optimized for up to 'size' elements.
     """
-    return OptimizedMutableSetMeta(
-        _unique_cls_name(f"_Size{size}MutableSet"),
-        (MutableSet,),
-        {},
-        internal_size=size,
-        project=project,
+    return cast(
+        type[MutableSet],
+        OptimizedMutableSetMeta(
+            _unique_cls_name(f"_Size{size}MutableSet"),
+            (MutableSet,),
+            {},
+            internal_size=size,
+            project=project,
+        ),
     )
 
 
@@ -247,7 +259,7 @@ def create_mapping_class(
     size: int,
     *,
     skip_cache: bool = False,  # pylint: disable=unused-argument
-) -> type:
+) -> type[Mapping]:
     """Create an optimized immutable Mapping class for the specified size.
 
     Args:
@@ -257,8 +269,11 @@ def create_mapping_class(
     Returns:
         A Mapping class optimized for exactly 'size' key-value pairs.
     """
-    return OptimizedMappingMeta(
-        _unique_cls_name(f"_Size{size}Mapping"), (Mapping,), {}, internal_size=size
+    return cast(
+        type[Mapping],
+        OptimizedMappingMeta(
+            _unique_cls_name(f"_Size{size}Mapping"), (Mapping,), {}, internal_size=size
+        ),
     )
 
 
@@ -267,7 +282,7 @@ def create_mut_mapping_class(
     size: int,
     *,
     skip_cache: bool = False,  # pylint: disable=unused-argument
-) -> type:
+) -> type[MutableMapping]:
     """Create an optimized MutableMapping class for the specified size.
 
     The created class supports overflow to standard dict when key-value pairs
@@ -280,9 +295,12 @@ def create_mut_mapping_class(
     Returns:
         A MutableMapping class optimized for up to 'size' key-value pairs.
     """
-    return OptimizedMutableMappingMeta(
-        _unique_cls_name(f"_Size{size}MutableMapping"),
-        (MutableMapping,),
-        {},
-        internal_size=size,
+    return cast(
+        type[MutableMapping],
+        OptimizedMutableMappingMeta(
+            _unique_cls_name(f"_Size{size}MutableMapping"),
+            (MutableMapping,),
+            {},
+            internal_size=size,
+        ),
     )

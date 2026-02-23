@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any
 
 
+@dataclass(slots=True, frozen=True)
 class EndMarker:
     """Sentinel class marking the end of used slots in mutable collections.
 
