@@ -39,7 +39,7 @@ def instance_from_case[S: Set](case: BenchmarkCase[S]) -> S:
 
 
 @pytest.mark.parametrize("case", all_cases)
-def test_bench_init(benchmark, case: BenchmarkCase[MutableSet]):
+def bench_init(benchmark, case: BenchmarkCase[MutableSet]):
     c = create_set_class(case.size)
     seed = set(range(case.size))
 
@@ -50,7 +50,7 @@ def test_bench_init(benchmark, case: BenchmarkCase[MutableSet]):
 
 
 @pytest.mark.parametrize("case", all_cases)
-def test_bench_contains(benchmark, case: BenchmarkCase[Set]):
+def bench_contains(benchmark, case: BenchmarkCase[Set]):
     optimized = instance_from_case(case)
 
     max = len(optimized)
@@ -64,7 +64,7 @@ def test_bench_contains(benchmark, case: BenchmarkCase[Set]):
 
 
 @pytest.mark.parametrize("case", all_cases)
-def test_bench_iter(benchmark, case: BenchmarkCase[Set]):
+def bench_iter(benchmark, case: BenchmarkCase[Set]):
     optimized = instance_from_case(case)
 
     def run():
@@ -74,7 +74,7 @@ def test_bench_iter(benchmark, case: BenchmarkCase[Set]):
 
 
 @pytest.mark.parametrize("case", all_cases)
-def test_bench_len(benchmark, case: BenchmarkCase[Set]):
+def bench_len(benchmark, case: BenchmarkCase[Set]):
     optimized = instance_from_case(case)
 
     def run():

@@ -14,9 +14,10 @@ preview = true
 [tool.uv.sources]
 guppy3 = { git = "https://github.com/zhuyifei1999/guppy3.git", rev = "da86ab98abf20c57b9ead4d653157af8baaa8efd" }
 
-[tool.pytest.ini_options]
+[tool.pytest]
 testpaths = ["tests"]
 python_files = ["test_*.py", "bench_*.py"]
+python_functions = ["test_", "bench_"]
 
 [dependency-groups]
 dev = [
