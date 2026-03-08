@@ -21,6 +21,10 @@ MAX_FIXTURE_SIZE = 10
 ITERATIONS = 20
 ROUNDS = 200000
 
+builtin_set_cases = [
+    pytest.param(BenchmarkCase[Set]("builtin", i, lambda _: set, range), id=f"builtin_{i}")
+    for i in range(1, MAX_FIXTURE_SIZE)
+]
 immutable_set_cases = [
     pytest.param(BenchmarkCase[Set]("immutable", i, create_set_class, range), id=f"immutable_{i}")
     for i in range(1, MAX_FIXTURE_SIZE)
@@ -31,7 +35,7 @@ mutable_set_cases = [
     )
     for i in range(1, MAX_FIXTURE_SIZE)
 ]
-all_cases = [*immutable_set_cases, *mutable_set_cases]
+all_cases = [*builtin_set_cases, *immutable_set_cases, *mutable_set_cases]
 
 
 def instance_from_case[S: Set](case: BenchmarkCase[S]) -> S:
@@ -42,7 +46,7 @@ def instance_from_case[S: Set](case: BenchmarkCase[S]) -> S:
 
 
 @pytest.mark.parametrize("case", all_cases)
-def bench_init(benchmark, case: BenchmarkCase[MutableSet]):
+def bench_init(benchmark, case: BenchmarkCase[Set]):
     c = create_set_class(case.size)
     seed = set(range(case.size))
 
