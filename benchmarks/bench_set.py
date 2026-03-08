@@ -53,13 +53,14 @@ def bench_init(benchmark, case: BenchmarkCase[MutableSet]):
     benchmark.pedantic(run, rounds=ROUNDS, iterations=ITERATIONS)
 
 
+@pytest.mark.parametrize("hit_density", [0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99])
 @pytest.mark.parametrize("case", all_cases)
-def bench_contains(benchmark, case: BenchmarkCase[Set]):
+def bench_contains(benchmark, case: BenchmarkCase[Set], hit_density: float):
     optimized = instance_from_case(case)
 
-    max = len(optimized)
-    sample = random.sample(range(max * 2), 500)
-    values = itertools.cycle(sample)
+    buffer = list(range(int(len(optimized) / hit_density)))
+    random.shuffle(buffer)
+    values = itertools.cycle(buffer)
 
     def run():
         next(values) in optimized
