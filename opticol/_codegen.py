@@ -3,26 +3,12 @@ Internal module to consolidate dynamic code generation logic and modifications.
 """
 
 from collections.abc import Iterable
-from typing import Any, Optional
 
 
-def def_fn(code: str) -> Any:
-    ns: dict[str, Any] = {}
-    exec(code, ns)
-    (n1, o1), (n2, o2) = ns.items()
-
-    if n1 == "__builtins__":
-        return o2
-    if n2 == "__builtins__":
-        return o1
-
-    raise RuntimeError("The dynamic execution namespace had an unexpected value.")
-
-
-def guard(flag: bool, code: str, other: Optional[str] = None) -> str:
+def guard(flag: bool, code: str) -> str:
     if flag:
         return code
-    return other if other is not None else ""
+    return ""
 
 
 def spliced(level: int, lines: Iterable[str]) -> str:
