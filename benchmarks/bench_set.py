@@ -5,7 +5,7 @@ from benchmarks import set_ops
 from opticol.factory import create_set_class
 
 cases = [
-    BenchmarkCase[Set](f"immutable_{i}", create_set_class(i), lambda: set(range(i)))
+    BenchmarkCase[Set](f"immutable_{i}", create_set_class(i), lambda i=i: set(range(i)))
     for i in range(1, MAX_FIXTURE_SIZE)
 ]
 

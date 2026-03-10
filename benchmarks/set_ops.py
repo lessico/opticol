@@ -35,7 +35,8 @@ def _iter(case: BenchmarkCase[Set]) -> Callable[[], None]:
     optimized = instance_from_case(case)
 
     def run():
-        [el for el in optimized]
+        for _ in optimized:
+            pass
 
     return run
 

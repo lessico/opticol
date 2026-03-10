@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any, Generic, Optional, TypeVar
+from typing import Any, Generic, TypeVar
 
 import pytest
 
@@ -65,10 +65,17 @@ def _make_bench_fn(
     iterations: int, rounds: int, op: BenchmarkOperation, parameterized_cases: list
 ) -> Callable:
     fn_params = list(inspect.signature(op.fn).parameters.keys())
-    for name in fn_params[1:]:
-        if name not in op._extra_params:
-            raise ValueError(f"No parameter values provided for parameter '{name}' on operation '{op.key}'")
+    if fn_params[0] != "case":
+        raise ValueError(f"Expected first parameter of benchmark operation '{op.key}' to be 'case'")
+
     extra_params = fn_params[1:]
+
+    needed = set(fn_params[:1])
+    provided = set(op._extra_params)
+    if needed != provided:
+        missing = needed - provided
+        extra = provided - needed
+        raise ValueError(f"Parameter mismatch for '{op.key}: missing={missing}, extra={extra}")
 
     def bench_fn(benchmark, case, **extra):
         extra = [extra[name] for name in extra_params]
@@ -87,7 +94,8 @@ def _make_bench_fn(
         setattr(bench_fn, "__signature__", inspect.Signature(params))
 
     bench_fn = pytest.mark.parametrize("case", parameterized_cases)(bench_fn)
-    for param_name, param_values in op._extra_params.items():
-        bench_fn = pytest.mark.parametrize(param_name, param_values)(bench_fn)
+    for name in extra_params:
+        values = op._extra_params[name]
+        bench_fn = pytest.mark.parametrize(name, values)(bench_fn)
 
     return bench_fn
