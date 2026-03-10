@@ -48,7 +48,7 @@ def _len(case: BenchmarkCase):
     return run
 
 
-init = BenchmarkOperation(name="bench_init", fn=_init)
-contains = BenchmarkOperation(name="bench_contains", fn=_contains, extra_params=[("hit_density", HIT_DENSITIES)])
-iter_ = BenchmarkOperation(name="bench_iter", fn=_iter)
-len_ = BenchmarkOperation(name="bench_len", fn=_len)
+init = BenchmarkOperation(key="init", fn=_init)
+contains = BenchmarkOperation(key="contains", fn=_contains).with_params(hit_density=HIT_DENSITIES)
+iter_ = BenchmarkOperation(key="iter", fn=_iter)
+len_ = BenchmarkOperation(key="len", fn=_len)
