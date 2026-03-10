@@ -1,5 +1,6 @@
 """Shared benchmark operation descriptors for Set and MutableSet benchmarks."""
 
+from collections.abc import Callable, Set
 import itertools
 import random
 
@@ -8,9 +9,9 @@ from benchmarks.common import BenchmarkCase, BenchmarkOperation, instance_from_c
 HIT_DENSITIES = [0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99]
 
 
-def _init(case: BenchmarkCase):
-    cls = case.factory(case.size)
-    seed = set(case.seed(case.size))
+def _init(case: BenchmarkCase[Set]) -> Callable[[], None]:
+    cls = case.cls
+    seed = case.seed()
 
     def run():
         cls(seed)
@@ -18,7 +19,7 @@ def _init(case: BenchmarkCase):
     return run
 
 
-def _contains(case: BenchmarkCase, hit_density: float):
+def _contains(case: BenchmarkCase[Set], hit_density: float) -> Callable[[], None]:
     optimized = instance_from_case(case)
     buffer = list(range(int(len(optimized) / hit_density)))
     random.shuffle(buffer)
@@ -30,7 +31,7 @@ def _contains(case: BenchmarkCase, hit_density: float):
     return run
 
 
-def _iter(case: BenchmarkCase):
+def _iter(case: BenchmarkCase[Set]) -> Callable[[], None]:
     optimized = instance_from_case(case)
 
     def run():
@@ -39,7 +40,7 @@ def _iter(case: BenchmarkCase):
     return run
 
 
-def _len(case: BenchmarkCase):
+def _len(case: BenchmarkCase[Set]) -> Callable[[], None]:
     optimized = instance_from_case(case)
 
     def run():
