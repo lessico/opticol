@@ -1,11 +1,9 @@
 import inspect
 from collections.abc import Callable
-from dataclasses import dataclass, field
-from typing import Any, Generic, TypeVar
+from dataclasses import dataclass
+from typing import Any
 
 import pytest
-
-C = TypeVar("C", covariant=True)
 
 MAX_FIXTURE_SIZE = 10
 ITERATIONS = 10
@@ -13,7 +11,7 @@ ROUNDS = 200000
 
 
 @dataclass
-class BenchmarkCase(Generic[C]):
+class BenchmarkCase[C]:
     key: str
     cls: Callable[[C], C]
     seed: Callable[[], C]
@@ -41,7 +39,7 @@ class BenchmarkOperation:
         return op
 
 
-def bench_suite[C](
+def benchmark_suite[C](
     *,
     iterations: int,
     rounds: int,
@@ -70,7 +68,7 @@ def _make_bench_fn(
 
     extra_params = fn_params[1:]
 
-    needed = set(fn_params[:1])
+    needed = set(extra_params)
     provided = set(op._extra_params)
     if needed != provided:
         missing = needed - provided
@@ -88,9 +86,7 @@ def _make_bench_fn(
         params = [
             inspect.Parameter("benchmark", inspect.Parameter.POSITIONAL_OR_KEYWORD),
             inspect.Parameter("case", inspect.Parameter.POSITIONAL_OR_KEYWORD),
-        ] + [
-            inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY) for name in extra_params 
-        ]
+        ] + [inspect.Parameter(name, inspect.Parameter.KEYWORD_ONLY) for name in extra_params]
         setattr(bench_fn, "__signature__", inspect.Signature(params))
 
     bench_fn = pytest.mark.parametrize("case", parameterized_cases)(bench_fn)
