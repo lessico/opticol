@@ -1,83 +1,23 @@
 from collections.abc import Callable, Set
-from dataclasses import dataclass
-import itertools
-import random
-from typing import Generic, Iterable, MutableSet, TypeVar, cast
-import pytest
-from opticol.factory import create_mut_set_class, create_set_class
 
-C = TypeVar("C", covariant=True, bound=Set)
+from benchmarks.common import BenchmarkCase, benchmark_suite, MAX_FIXTURE_SIZE, ROUNDS, ITERATIONS
+from benchmarks import set_ops
+from opticol.factory import create_set_class
 
 
-@dataclass
-class BenchmarkCase(Generic[C]):
-    key: str
-    size: int
-    factory: Callable[[int], Callable[[C], C]]
-    seed: Callable[[int], Iterable]
+def _set_maker(i: int) -> Callable[[], set[int]]:
+    return lambda: set(range(i))
 
 
-MAX_FIXTURE_SIZE = 10
-immutable_set_cases = [
-    pytest.param(BenchmarkCase[Set]("immutable", i, create_set_class, range), id=f"immutable_{i}")
+cases = [
+    BenchmarkCase[Set](f"immutable_{i}", create_set_class(i), _set_maker(i))
     for i in range(1, MAX_FIXTURE_SIZE)
 ]
-mutable_set_cases = [
-    pytest.param(
-        BenchmarkCase[MutableSet]("mutable", i, create_mut_set_class, range), id=f"mutable_{i}"
-    )
-    for i in range(1, MAX_FIXTURE_SIZE)
-]
-all_cases = [*immutable_set_cases, *mutable_set_cases]
 
-
-def instance_from_case[S: Set](case: BenchmarkCase[S]) -> S:
-    cls = case.factory(case.size)
-    s: S = cast(S, set(case.seed(case.size)))
-    instance = cls(s)
-    return instance
-
-
-@pytest.mark.parametrize("case", all_cases)
-def bench_init(benchmark, case: BenchmarkCase[MutableSet]):
-    c = create_set_class(case.size)
-    seed = set(range(case.size))
-
-    def run():
-        c(seed)
-
-    benchmark(run)
-
-
-@pytest.mark.parametrize("case", all_cases)
-def bench_contains(benchmark, case: BenchmarkCase[Set]):
-    optimized = instance_from_case(case)
-
-    max = len(optimized)
-    sample = random.sample(range(max * 2), 500)
-    values = itertools.cycle(sample)
-
-    def run():
-        next(values) in optimized
-
-    benchmark(run)
-
-
-@pytest.mark.parametrize("case", all_cases)
-def bench_iter(benchmark, case: BenchmarkCase[Set]):
-    optimized = instance_from_case(case)
-
-    def run():
-        [el for el in optimized]
-
-    benchmark(run)
-
-
-@pytest.mark.parametrize("case", all_cases)
-def bench_len(benchmark, case: BenchmarkCase[Set]):
-    optimized = instance_from_case(case)
-
-    def run():
-        len(optimized)
-
-    benchmark(run)
+benchmark_suite(
+    iterations=ITERATIONS,
+    rounds=ROUNDS,
+    cases=cases,
+    bench=[set_ops.init, set_ops.contains, set_ops.iter_, set_ops.len_],
+    ns=globals(),
+)
