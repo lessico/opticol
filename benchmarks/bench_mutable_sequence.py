@@ -18,6 +18,6 @@ benchmark_suite(
     iterations=ITERATIONS,
     rounds=ROUNDS,
     cases=cases,
-    bench=[sequence_ops.getitem, sequence_ops.len_, sequence_ops.setitem, sequence_ops.delitem, sequence_ops.insert],
+    bench=[sequence_ops.init, sequence_ops.getitem, sequence_ops.len_, sequence_ops.setitem, sequence_ops.delitem, sequence_ops.insert],
     ns=globals(),
 )
