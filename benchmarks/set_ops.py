@@ -1,6 +1,6 @@
 """Shared benchmark operation descriptors for Set and MutableSet benchmarks."""
 
-from collections.abc import Callable, Set
+from collections.abc import Callable, MutableSet, Set
 import itertools
 import random
 
@@ -50,7 +50,37 @@ def _len(case: BenchmarkCase[Set]) -> Callable[[], None]:
     return run
 
 
+def _add(case: BenchmarkCase[MutableSet], hit_density: float) -> Callable[[], None]:
+    s = case.seed()
+    internal_size = len(s)
+    buffer = list(range(int(internal_size / hit_density)))
+    random.shuffle(buffer)
+    values = itertools.cycle(buffer)
+
+    def run():
+        instance = case.cls(s)
+        instance.add(next(values))
+
+    return run
+
+
+def _discard(case: BenchmarkCase[MutableSet], hit_density: float) -> Callable[[], None]:
+    s = case.seed()
+    internal_size = len(s)
+    buffer = list(range(int(internal_size / hit_density)))
+    random.shuffle(buffer)
+    values = itertools.cycle(buffer)
+
+    def run():
+        instance = case.cls(s)
+        instance.discard(next(values))
+
+    return run
+
+
 init = BenchmarkOperation(key="init", fn=_init)
 contains = BenchmarkOperation(key="contains", fn=_contains).with_params(hit_density=HIT_DENSITIES)
 iter_ = BenchmarkOperation(key="iter", fn=_iter)
 len_ = BenchmarkOperation(key="len", fn=_len)
+add = BenchmarkOperation(key="add", fn=_add).with_params(hit_density=HIT_DENSITIES)
+discard = BenchmarkOperation(key="discard", fn=_discard).with_params(hit_density=HIT_DENSITIES)
