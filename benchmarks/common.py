@@ -1,13 +1,18 @@
+from fractions import Fraction
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass
-from typing import Any
+import itertools
+import math
+import random
+from typing import Any, Optional
 
 import pytest
 
 MAX_FIXTURE_SIZE = 10
 ITERATIONS = 10
 ROUNDS = 200000
+HIT_DENSITIES = [0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99]
 
 
 @dataclass
@@ -20,6 +25,43 @@ class BenchmarkCase[C]:
 def instance_from_case[C](case: BenchmarkCase[C]) -> C:
     s = case.seed()
     return case.cls(s)
+
+
+def amortized_indexer[T](indices: Iterable[T], *, scale: Optional[int] = None) -> Iterator[T]:
+    if scale is not None and scale <= 0:
+        raise ValueError(f"scale parameter for amortized_indexer must be positive but '{scale}' was given.")
+
+    final = []
+    base = list(indices)
+    n = int(len(base) / (scale or 1))
+
+    for _ in range(n):
+        copy = base[:]
+        random.shuffle(copy)
+        final.extend(copy)
+    return itertools.cycle(final)
+
+def proportional_indexer[T](indices: Iterable[T], hit_density: float, epsilon: float=0.01) -> Iterable:
+    if hit_density > 1 or hit_density <= 0:
+        raise ValueError(f"The hit_density parameter must be in the interval (0, 1] but '{hit_density}' was given.")
+
+    l = list(indices)
+
+    max_denom = max(1, math.ceil(1 / (hit_density * epsilon)))
+    frac = Fraction(hit_density).limit_denominator(max_denom)
+
+    g = math.gcd(frac.numerator, len(l))
+    scale = int(frac.numerator // g)
+    total = frac.denominator * len(l) // g
+    new_object_count = total - (len(l) * scale)
+
+    as_list: list[Any] = l * scale
+    for _ in range(new_object_count):
+        as_list.append(object())
+
+    return amortized_indexer(as_list, scale=scale)
+
+
 
 
 class BenchmarkOperation:

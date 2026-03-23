@@ -2,12 +2,10 @@
 
 from collections.abc import Callable, MutableSet, Set
 import itertools
+import math
 import random
 
-from benchmarks.common import BenchmarkCase, BenchmarkOperation, instance_from_case
-
-HIT_DENSITIES = [0.01, 0.1, 0.25, 0.5, 0.75, 0.9, 0.99]
-
+from benchmarks.common import BenchmarkCase, BenchmarkOperation, proportional_indexer, instance_from_case, HIT_DENSITIES
 
 def _init(case: BenchmarkCase[Set]) -> Callable[[], None]:
     cls = case.cls
@@ -21,9 +19,7 @@ def _init(case: BenchmarkCase[Set]) -> Callable[[], None]:
 
 def _contains(case: BenchmarkCase[Set], hit_density: float) -> Callable[[], None]:
     optimized = instance_from_case(case)
-    buffer = list(range(int(len(optimized) / hit_density)))
-    random.shuffle(buffer)
-    values = itertools.cycle(buffer)
+    values = proportional_indexer(optimized, hit_density)
 
     def run():
         next(values) in optimized
@@ -52,10 +48,7 @@ def _len(case: BenchmarkCase[Set]) -> Callable[[], None]:
 
 def _add(case: BenchmarkCase[MutableSet], hit_density: float) -> Callable[[], None]:
     s = case.seed()
-    internal_size = len(s)
-    buffer = list(range(int(internal_size / hit_density)))
-    random.shuffle(buffer)
-    values = itertools.cycle(buffer)
+    values = proportional_indexer(s, hit_density)
 
     def run():
         instance = case.cls(s)
@@ -66,10 +59,7 @@ def _add(case: BenchmarkCase[MutableSet], hit_density: float) -> Callable[[], No
 
 def _discard(case: BenchmarkCase[MutableSet], hit_density: float) -> Callable[[], None]:
     s = case.seed()
-    internal_size = len(s)
-    buffer = list(range(int(internal_size / hit_density)))
-    random.shuffle(buffer)
-    values = itertools.cycle(buffer)
+    values = proportional_indexer(s, hit_density)
 
     def run():
         instance = case.cls(s)
