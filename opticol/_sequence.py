@@ -198,7 +198,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
             del current[key]
             _assign(self, current)
 
-        __len__ = OptimizedCollectionMeta._mut_len(slots, Overflow, lambda o: len(o.data), END)
+        __len__ = OptimizedCollectionMeta[MutableSequence]._mut_len(slots, Overflow, lambda o: len(o.data), END)
 
         def insert(self, index, value):
             current = list(self)

@@ -156,7 +156,8 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
         def __init__(self, s):
             _assign(self, s)
 
-        __contains__ = def_fn(rootit(f"""
+        __contains__ = def_fn(
+            rootit(f"""
             def __contains__(self, value):
                 first = self.{slots[0]}
                 if isinstance(first, Overflow):
@@ -165,14 +166,17 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                             if self.{slot} is END: return False
                             if self.{slot} == value: return True""") for slot in slots])}
                 return False
-            """), Overflow=Overflow, END=END)
+            """),
+            Overflow=Overflow,
+            END=END,
+        )
 
         def __iter__(self):
             yield from OptimizedCollectionMeta._mut_iter(
                 self, slots, Overflow, lambda o: o.data, END, lambda v: v
             )
 
-        __len__ = OptimizedCollectionMeta._mut_len(slots, Overflow, lambda o: len(o.data), END)
+        __len__ = OptimizedCollectionMeta[MutableSet]._mut_len(slots, Overflow, lambda o: len(o.data), END)
 
         def add(self, value):
             current = set(self)

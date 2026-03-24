@@ -87,7 +87,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
         overflow_type: type[O],
         overflow_selector: Callable[[O], int],
         end_object: object,
-    ) -> Callable[[Any], int]:
+    ) -> Callable[[C], int]:
         """Calculate length for mutable collections supporting overflow.
 
         Mutable collections can exceed their allocated slot count, triggering overflow to a standard
@@ -105,7 +105,8 @@ class OptimizedCollectionMeta[C](ABCMeta):
             The number of elements in the collection.
         """
 
-        return def_fn(rootit(f"""
+        return def_fn(
+            rootit(f"""
             def len(inst: Any) -> int:
                 first = inst.{slots[0]}
                 if isinstance(first, overflow_type):
@@ -113,9 +114,11 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
                 {spliced(4, [(f"if inst.{slot} is end_object: return {i}") for i, slot in enumerate(slots)])}
                 return {len(slots)}
-            """), overflow_type=overflow_type, overflow_selector=overflow_selector, end_object=end_object)
-
-
+            """),
+            overflow_type=overflow_type,
+            overflow_selector=overflow_selector,
+            end_object=end_object,
+        )
 
     @staticmethod
     def _mut_iter[O](

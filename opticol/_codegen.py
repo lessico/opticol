@@ -5,6 +5,7 @@ Internal module to consolidate dynamic code generation logic and modifications.
 from collections.abc import Iterable, Sequence
 from typing import Any
 
+
 def def_fn(code: str, **kwargs) -> Any:
     """
     Easily define a function dynamically using a string at runtime.
@@ -19,7 +20,7 @@ def def_fn(code: str, **kwargs) -> Any:
     Raises:
         A runtime error if not exactly 1 object was added to this namespace.
     """
-    original_keys = set(kwargs.keys()) 
+    original_keys = set(kwargs.keys())
     ns: dict[str, Any] = kwargs
     exec(code, ns)
     current_keys = set(kwargs.keys())
