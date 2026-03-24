@@ -9,6 +9,8 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import Any, Optional
 
+from opticol._codegen import def_fn, rootit, spliced
+
 
 class OptimizedCollectionMeta[C](ABCMeta):
     """Metaclass for creating optimized collection classes with fixed-size slots.
@@ -81,12 +83,11 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
     @staticmethod
     def _mut_len[O](
-        inst: Any,
         slots: Sequence[str],
         overflow_type: type[O],
         overflow_selector: Callable[[O], int],
         end_object: object,
-    ) -> int:
+    ) -> Callable[[Any], int]:
         """Calculate length for mutable collections supporting overflow.
 
         Mutable collections can exceed their allocated slot count, triggering overflow to a standard
@@ -103,17 +104,18 @@ class OptimizedCollectionMeta[C](ABCMeta):
         Returns:
             The number of elements in the collection.
         """
-        first = getattr(inst, slots[0])
-        if isinstance(first, overflow_type):
-            return overflow_selector(first)
 
-        count = 0
-        for slot in slots:
-            if getattr(inst, slot) is end_object:
-                break
-            count += 1
+        return def_fn(rootit(f"""
+            def len(inst: Any) -> int:
+                first = inst.{slots[0]}
+                if isinstance(first, overflow_type):
+                    return overflow_selector(first)
 
-        return count
+                {spliced(4, [(f"if inst.{slot} is end_object: return {i}") for i, slot in enumerate(slots)])}
+                return {len(slots)}
+            """), overflow_type=overflow_type, overflow_selector=overflow_selector, end_object=end_object)
+
+
 
     @staticmethod
     def _mut_iter[O](

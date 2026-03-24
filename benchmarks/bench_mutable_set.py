@@ -10,7 +10,7 @@ def _set_maker(i: int) -> Callable[[], set[int]]:
 
 
 cases = [
-    BenchmarkCase[MutableSet](f"mutable_{i}", create_mut_set_class(i), _set_maker(i))
+    BenchmarkCase[MutableSet](f"set_mutable_{i}", create_mut_set_class(i), _set_maker(i))
     for i in range(1, MAX_FIXTURE_SIZE)
 ]
 

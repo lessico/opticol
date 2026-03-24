@@ -10,7 +10,7 @@ def _mapping_maker(i: int) -> Callable[[], dict[int, int]]:
 
 
 cases = [
-    BenchmarkCase[MutableMapping](f"mutable_{i}", create_mut_mapping_class(i), _mapping_maker(i))
+    BenchmarkCase[MutableMapping](f"mapping_mutable_{i}", create_mut_mapping_class(i), _mapping_maker(i))
     for i in range(1, MAX_FIXTURE_SIZE)
 ]
 

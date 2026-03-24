@@ -163,8 +163,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                 self, slots, dict, lambda d: d, None, operator.itemgetter(0)
             )
 
-        def __len__(self):
-            return OptimizedCollectionMeta._mut_len(self, slots, dict, len, None)
+        __len__ = OptimizedCollectionMeta._mut_len(slots, dict, len, None)
 
         def popitem(self):
             first = getattr(self, slots[0])

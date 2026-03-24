@@ -80,7 +80,6 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
         def __getitem__(self, key):
             match key:
                 case int():
-                    key = _adjust_index(key, len(self))
                     return getattr(self, slots[key])
                 case slice():
                     indices = range(*key.indices(len(self)))
@@ -199,10 +198,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
             del current[key]
             _assign(self, current)
 
-        def __len__(self):
-            return OptimizedCollectionMeta._mut_len(
-                self, slots, Overflow, lambda o: len(o.data), END
-            )
+        __len__ = OptimizedCollectionMeta._mut_len(slots, Overflow, lambda o: len(o.data), END)
 
         def insert(self, index, value):
             current = list(self)

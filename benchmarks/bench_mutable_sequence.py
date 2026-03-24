@@ -10,7 +10,7 @@ def _seq_maker(i: int) -> Callable[[], list[int]]:
 
 
 cases = [
-    BenchmarkCase[MutableSequence](f"mutable_{i}", create_mut_seq_class(i), _seq_maker(i))
+    BenchmarkCase[MutableSequence](f"sequence_mutable_{i}", create_mut_seq_class(i), _seq_maker(i))
     for i in range(1, MAX_FIXTURE_SIZE)
 ]
 

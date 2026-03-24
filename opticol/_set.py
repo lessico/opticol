@@ -9,6 +9,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
+from opticol._codegen import def_fn, guard, rootit, spliced
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END, Overflow
 
@@ -52,25 +53,25 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, s):
-            if len(s) != internal_size:
-                raise ValueError(
-                    f"Expected provided Set to have exactly {internal_size} elements but it has "
-                    f"{len(s)}."
-                )
+        __init__ = def_fn(rootit(f"""
+            def __init__(self, s):
+                if len(s) != {internal_size}:
+                    raise ValueError(
+                        "Expected provided Set to have exactly {internal_size} elements but it has "
+                        f"{{len(s)}}."
+                    )
+                {guard(internal_size > 0, f"({",".join(f"self.{slot}" for slot in slots)},) = s")}
+            """))
 
-            for slot, v in zip(slots, s, strict=True):
-                setattr(self, slot, v)
+        __contains__ = def_fn(rootit(f"""
+            def __contains__(self, value):
+                return {guard(internal_size > 0, " or ".join(f"self.{slot} == value" for slot in slots), "False")}
+            """))
 
-        def __contains__(self, value):
-            for slot in slots:
-                if getattr(self, slot) == value:
-                    return True
-            return False
-
-        def __iter__(self):
-            for slot in slots:
-                yield getattr(self, slot)
+        __iter__ = def_fn(rootit(f"""
+            def __iter__(self):
+                yield from {guard(internal_size > 0, "(" + ", ".join(f"self.{slot}" for slot in slots) + ",)", "()")}
+            """))
 
         def __len__(_):
             return internal_size
@@ -155,28 +156,23 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
         def __init__(self, s):
             _assign(self, s)
 
-        def __contains__(self, value):
-            first = getattr(self, slots[0])
-            if isinstance(first, Overflow):
-                return value in first.data
-
-            for slot in slots:
-                v = getattr(self, slot)
-                if v is END:
-                    break
-                if v == value:
-                    return True
-            return False
+        __contains__ = def_fn(rootit(f"""
+            def __contains__(self, value):
+                first = self.{slots[0]}
+                if isinstance(first, Overflow):
+                    return value in first.data
+                {spliced(4, [rootit(f"""
+                            if self.{slot} is END: return False
+                            if self.{slot} == value: return True""") for slot in slots])}
+                return False
+            """), Overflow=Overflow, END=END)
 
         def __iter__(self):
             yield from OptimizedCollectionMeta._mut_iter(
                 self, slots, Overflow, lambda o: o.data, END, lambda v: v
             )
 
-        def __len__(self):
-            return OptimizedCollectionMeta._mut_len(
-                self, slots, Overflow, lambda o: len(o.data), END
-            )
+        __len__ = OptimizedCollectionMeta._mut_len(slots, Overflow, lambda o: len(o.data), END)
 
         def add(self, value):
             current = set(self)
