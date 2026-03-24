@@ -3,7 +3,13 @@
 from collections.abc import Callable, Mapping, MutableMapping
 import itertools
 
-from benchmarks.common import BenchmarkCase, BenchmarkOperation, instance_from_case
+from benchmarks.common import (
+    BenchmarkCase,
+    BenchmarkOperation,
+    instance_from_case,
+    proportional_indexer,
+    HIT_DENSITIES,
+)
 
 
 def _init(case: BenchmarkCase[Mapping]) -> Callable[[], None]:
@@ -16,12 +22,15 @@ def _init(case: BenchmarkCase[Mapping]) -> Callable[[], None]:
     return run
 
 
-def _getitem(case: BenchmarkCase[Mapping]) -> Callable[[], None]:
+def _getitem(case: BenchmarkCase[Mapping], hit_density: float) -> Callable[[], None]:
     optimized = instance_from_case(case)
-    keys = itertools.cycle(optimized)
+    keys = proportional_indexer(optimized, hit_density)
 
     def run():
-        optimized[next(keys)]
+        try:
+            optimized[next(keys)]
+        except KeyError:
+            pass
 
     return run
 
@@ -45,9 +54,9 @@ def _len(case: BenchmarkCase[Mapping]) -> Callable[[], None]:
     return run
 
 
-def _setitem(case: BenchmarkCase[MutableMapping]) -> Callable[[], None]:
+def _setitem(case: BenchmarkCase[MutableMapping], hit_density: float) -> Callable[[], None]:
     s = case.seed()
-    keys = itertools.cycle(s)
+    keys = proportional_indexer(s, hit_density)
     values = itertools.cycle(s.values())
 
     def run():
@@ -57,20 +66,23 @@ def _setitem(case: BenchmarkCase[MutableMapping]) -> Callable[[], None]:
     return run
 
 
-def _delitem(case: BenchmarkCase[MutableMapping]) -> Callable[[], None]:
+def _delitem(case: BenchmarkCase[MutableMapping], hit_density: float) -> Callable[[], None]:
     s = case.seed()
-    keys = itertools.cycle(s)
+    keys = proportional_indexer(s, hit_density)
 
     def run():
         instance = case.cls(s)
-        del instance[next(keys)]
+        try:
+            del instance[next(keys)]
+        except KeyError:
+            pass
 
     return run
 
 
 init = BenchmarkOperation(key="init", fn=_init)
-getitem = BenchmarkOperation(key="getitem", fn=_getitem)
+getitem = BenchmarkOperation(key="getitem", fn=_getitem).with_params(hit_density=HIT_DENSITIES)
 iter_ = BenchmarkOperation(key="iter", fn=_iter)
 len_ = BenchmarkOperation(key="len", fn=_len)
-setitem = BenchmarkOperation(key="setitem", fn=_setitem)
-delitem = BenchmarkOperation(key="delitem", fn=_delitem)
+setitem = BenchmarkOperation(key="setitem", fn=_setitem).with_params(hit_density=HIT_DENSITIES)
+delitem = BenchmarkOperation(key="delitem", fn=_delitem).with_params(hit_density=HIT_DENSITIES)

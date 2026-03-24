@@ -18,6 +18,12 @@ benchmark_suite(
     iterations=ITERATIONS,
     rounds=ROUNDS,
     cases=cases,
-    bench=[mapping_ops.getitem, mapping_ops.iter_, mapping_ops.len_, mapping_ops.setitem, mapping_ops.delitem],
+    bench=[
+        mapping_ops.getitem,
+        mapping_ops.iter_,
+        mapping_ops.len_,
+        mapping_ops.setitem,
+        mapping_ops.delitem,
+    ],
     ns=globals(),
 )

@@ -18,6 +18,13 @@ benchmark_suite(
     iterations=ITERATIONS,
     rounds=ROUNDS,
     cases=cases,
-    bench=[set_ops.init, set_ops.contains, set_ops.iter_, set_ops.len_, set_ops.add, set_ops.discard],
+    bench=[
+        set_ops.init,
+        set_ops.contains,
+        set_ops.iter_,
+        set_ops.len_,
+        set_ops.add,
+        set_ops.discard,
+    ],
     ns=globals(),
 )

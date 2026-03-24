@@ -5,7 +5,14 @@ import itertools
 import math
 import random
 
-from benchmarks.common import BenchmarkCase, BenchmarkOperation, proportional_indexer, instance_from_case, HIT_DENSITIES
+from benchmarks.common import (
+    BenchmarkCase,
+    BenchmarkOperation,
+    proportional_indexer,
+    instance_from_case,
+    HIT_DENSITIES,
+)
+
 
 def _init(case: BenchmarkCase[Set]) -> Callable[[], None]:
     cls = case.cls

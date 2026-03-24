@@ -29,7 +29,9 @@ def instance_from_case[C](case: BenchmarkCase[C]) -> C:
 
 def amortized_indexer[T](indices: Iterable[T], *, scale: Optional[int] = None) -> Iterator[T]:
     if scale is not None and scale <= 0:
-        raise ValueError(f"scale parameter for amortized_indexer must be positive but '{scale}' was given.")
+        raise ValueError(
+            f"scale parameter for amortized_indexer must be positive but '{scale}' was given."
+        )
 
     final = []
     base = list(indices)
@@ -41,9 +43,14 @@ def amortized_indexer[T](indices: Iterable[T], *, scale: Optional[int] = None) -
         final.extend(copy)
     return itertools.cycle(final)
 
-def proportional_indexer[T](indices: Iterable[T], hit_density: float, epsilon: float=0.01) -> Iterable:
+
+def proportional_indexer[T](
+    indices: Iterable[T], hit_density: float, epsilon: float = 0.01
+) -> Iterable:
     if hit_density > 1 or hit_density <= 0:
-        raise ValueError(f"The hit_density parameter must be in the interval (0, 1] but '{hit_density}' was given.")
+        raise ValueError(
+            f"The hit_density parameter must be in (0, 1] but '{hit_density}' was given."
+        )
 
     l = list(indices)
 
@@ -60,8 +67,6 @@ def proportional_indexer[T](indices: Iterable[T], hit_density: float, epsilon: f
         as_list.append(object())
 
     return amortized_indexer(as_list, scale=scale)
-
-
 
 
 class BenchmarkOperation:
