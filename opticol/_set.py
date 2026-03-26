@@ -140,8 +140,10 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, s):
+        def _assign(self, s, from_outside):
             if len(s) > internal_size:
+                if from_outside:
+                    s = set(s)
                 setattr(self, slots[0], Overflow(s))
                 for slot in slots[1:]:
                     setattr(self, slot, END)
@@ -154,7 +156,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                         setattr(self, slot, v)
 
         def __init__(self, s):
-            _assign(self, s)
+            _assign(self, s, True)
 
         __contains__ = def_fn(
             rootit(f"""
@@ -171,22 +173,65 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             END=END,
         )
 
-        def __iter__(self):
-            yield from OptimizedCollectionMeta._mut_iter(
-                self, slots, Overflow, lambda o: o.data, END, lambda v: v
-            )
+        __iter__ = OptimizedCollectionMeta[MutableSet]._mut_iter(slots, Overflow, lambda o: o.data, END, lambda v: v)
 
         __len__ = OptimizedCollectionMeta[MutableSet]._mut_len(slots, Overflow, lambda o: len(o.data), END)
 
         def add(self, value):
+            # If the set is overflowed, then just add directly to the overflow buffer.
+            first = getattr(self, slots[0])
+            if isinstance(first, Overflow):
+                first.data.add(value)
+                return
+
+            # If the set state is managed on the slots, then check if the item has to be added at
+            # all before continuing.
+            for item in self:
+                if value == item:
+                    return
+
+            # If not in overflow, check if there are any extra slots to put the new value in.
+            last = getattr(self, slots[-1])
+            if last is END:
+                idx = len(self)
+                setattr(self, slots[idx], value)
+                return
+
+            # Otherwise there are no extra slots, and the store just has to be reassigned.
             current = set(self)
             current.add(value)
-            _assign(self, current)
+            _assign(self, current, False)
+            return
 
         def discard(self, value):
-            current = set(self)
-            current.discard(value)
-            _assign(self, current)
+            # If the set is overflowed, then try to remove the item and check if the storage type
+            # needs to change.
+            first = getattr(self, slots[0])
+            if isinstance(first, Overflow):
+                first.data.discard(value)
+                if len(first.data) <= internal_size:
+                    _assign(self, first.data, False)
+                return
+
+            # Otherwise, loop through to find the item and then swap with the last item.
+            swap_idx = len(slots) - 1
+            to_remove_slot_idx = None
+            for i, slot in enumerate(slots):
+                item = getattr(self, slot)
+                if item is END:
+                    swap_idx = i - 1
+                    break
+
+                if item == value:
+                    to_remove_slot_idx = i
+
+            if to_remove_slot_idx is not None:
+                if to_remove_slot_idx == swap_idx:
+                    setattr(self, slots[to_remove_slot_idx], END)
+                else:
+                    swap_value = getattr(self, slots[swap_idx])
+                    setattr(self, slots[to_remove_slot_idx], swap_value)
+                    setattr(self, slots[swap_idx], END)
 
         def __repr__(self):
             if len(self) == 0:

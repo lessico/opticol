@@ -141,8 +141,10 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, seq):
+        def _assign(self, seq, from_outside):
             if len(seq) > internal_size:
+                if from_outside:
+                    seq = list(seq)
                 setattr(self, slots[0], Overflow(seq))
                 for slot in slots[1:]:
                     setattr(self, slot, END)
@@ -155,7 +157,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                         setattr(self, slot, v)
 
         def __init__(self, seq):
-            _assign(self, seq)
+            _assign(self, seq, True)
 
         def __getitem__(self, key):
             first = getattr(self, slots[0])
@@ -191,19 +193,19 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
         def __setitem__(self, key, value):
             current = list(self)
             current[key] = value
-            _assign(self, current)
+            _assign(self, current, False)
 
         def __delitem__(self, key):
             current = list(self)
             del current[key]
-            _assign(self, current)
+            _assign(self, current, False)
 
         __len__ = OptimizedCollectionMeta[MutableSequence]._mut_len(slots, Overflow, lambda o: len(o.data), END)
 
         def insert(self, index, value):
             current = list(self)
             current.insert(index, value)
-            _assign(self, current)
+            _assign(self, current, False)
 
         def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"

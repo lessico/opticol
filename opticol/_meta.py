@@ -122,36 +122,40 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
     @staticmethod
     def _mut_iter[O](
-        inst: Any,
         slots: Sequence[str],
         overflow_type: type[O],
         overflow_selector: Callable[[O], Iterable],
         end_object: object,
         value_selector: Callable,
-    ) -> Iterator:
-        """Iterate over elements in mutable collections supporting overflow.
+    ) -> Callable[[Any], Iterator]:
+        """Return a generator function that iterates over elements in mutable collections supporting overflow.
 
         Similar to _mut_len, this handles iteration for collections that may have overflowed or
         underflowed to different representations.
 
         Args:
-            inst: The collection instance.
             slots: Slot names to iterate over.
             overflow_type: Type used when collection exceeds slot capacity.
             overflow_selector: Function to extract iterable from overflow object.
             end_object: Sentinel marking unused slots.
             value_selector: Function to extract value from slot content.
 
-        Yields:
-            Elements from the collection.
+        Returns:
+            A generator function that takes an instance and yields its elements.
         """
-        first = getattr(inst, slots[0])
-        if isinstance(first, overflow_type):
-            yield from overflow_selector(first)
-            return
-
-        for slot in slots:
-            v = getattr(inst, slot)
-            if v is end_object:
-                return
-            yield value_selector(v)
+        return def_fn(
+            rootit(f"""
+            def iter(inst: Any) -> Iterator:
+                first = inst.{slots[0]}
+                if isinstance(first, overflow_type):
+                    yield from overflow_selector(first)
+                    return
+                {spliced(4, [rootit(f"""
+                    if inst.{slot} is end_object: return
+                    yield value_selector(inst.{slot})""") for slot in slots])}
+            """),
+            overflow_type=overflow_type,
+            overflow_selector=overflow_selector,
+            end_object=end_object,
+            value_selector=value_selector,
+        )

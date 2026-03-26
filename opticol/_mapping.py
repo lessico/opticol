@@ -10,6 +10,7 @@ from itertools import zip_longest
 import operator
 from typing import Any, Optional
 
+from opticol._codegen import def_fn, guard, rootit, spliced
 from opticol._meta import OptimizedCollectionMeta
 
 
@@ -47,25 +48,26 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, mapping):
-            if len(mapping) != internal_size:
-                raise ValueError(
-                    f"Expected provided Mapping to have exactly {internal_size} elements but it "
-                    f"has {len(mapping)}."
-                )
+        __init__ = def_fn(rootit(f"""
+            def __init__(self, mapping):
+                if len(mapping) != {internal_size}:
+                    raise ValueError(
+                        "Expected provided Mapping to have exactly {internal_size} elements but it "
+                        f"has {{len(mapping)}}."
+                    )
+                {guard(internal_size > 0, f"({",".join(f"self.{slot}" for slot in slots)},) = mapping.items()")}
+            """))
 
-            for slot, t in zip(slots, mapping.items(), strict=True):
-                setattr(self, slot, t)
+        __getitem__ = def_fn(rootit(f"""
+            def __getitem__(self, key):
+                {spliced(4, [f"if self.{slot}[0] == key: return self.{slot}[1]" for slot in slots])}
+                raise KeyError(key)
+            """))
 
-        def __getitem__(self, key):
-            for slot in slots:
-                item = getattr(self, slot)
-                if item[0] == key:
-                    return item[1]
-            raise KeyError(key)
-
-        def __iter__(self):
-            yield from (getattr(self, slot)[0] for slot in slots)
+        __iter__ = def_fn(rootit(f"""
+            def __iter__(self):
+                yield from {guard(internal_size > 0, "(" + ", ".join(f"self.{slot}[0]" for slot in slots) + ",)", "()")}
+            """))
 
         def __len__(_):
             return internal_size
@@ -117,8 +119,10 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, mapping):
+        def _assign(self, mapping, from_outside):
             if len(mapping) > internal_size:
+                if from_outside:
+                    mapping = dict(mapping)
                 setattr(self, slots[0], mapping)
                 for slot in slots[1:]:
                     setattr(self, slot, None)
@@ -131,7 +135,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                         setattr(self, slot, pair)
 
         def __init__(self, mapping):
-            _assign(self, mapping)
+            _assign(self, mapping, True)
 
         def __getitem__(self, key):
             first = getattr(self, slots[0])
@@ -151,17 +155,14 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         def __setitem__(self, key, value):
             current = dict(self)
             current[key] = value
-            _assign(self, current)
+            _assign(self, current, False)
 
         def __delitem__(self, key):
             current = dict(self)
             del current[key]
-            _assign(self, current)
+            _assign(self, current, False)
 
-        def __iter__(self):
-            yield from OptimizedCollectionMeta._mut_iter(
-                self, slots, dict, lambda d: d, None, operator.itemgetter(0)
-            )
+        __iter__ = OptimizedCollectionMeta[MutableMapping]._mut_iter(slots, dict, lambda d: d, None, operator.itemgetter(0))
 
         __len__ = OptimizedCollectionMeta[MutableMapping]._mut_len(slots, dict, len, None)
 
@@ -191,5 +192,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         namespace["__len__"] = __len__
         namespace["__repr__"] = __repr__
 
-        # Override mixin popitem to match dict's LIFO ordering
+        # Override mixin popitem to match dict's LIFO ordering. Although it's not a requirement of
+        # a MutableMapping instance to match this, the ideal case is for this to be an exact
+        # in-place replacement for dict.
         namespace["popitem"] = popitem
