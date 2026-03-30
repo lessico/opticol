@@ -191,9 +191,31 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     )
 
         def __setitem__(self, key, value):
-            current = list(self)
-            current[key] = value
-            _assign(self, current, False)
+            first = getattr(self, slots[0])
+            overflowed = isinstance(first, Overflow)
+
+            match key:
+                case int():
+                    if overflowed:
+                        first.data[key] = value
+                        return
+
+                    adjusted = _adjust_index(key, len(self))
+                    setattr(self, slots[adjusted], value)
+                case slice():
+                    if overflowed:
+                        first.data[key] = value
+                        if len(first.data) <= internal_size:
+                            _assign(self, first.data, False)
+                        return
+
+                    current = list(self)
+                    current[key] = value
+                    _assign(self, current, False)
+                case _:
+                    raise TypeError(
+                        f"Sequence accessors must be integers or slices, not {type(key)}"
+                    )
 
         def __delitem__(self, key):
             current = list(self)
