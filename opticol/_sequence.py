@@ -174,7 +174,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     return True, l, len(l)
                 return False, None, inline_length
             if isinstance(last, Overflow):
-                l = getattr(self, slots[0]).data
+                l = last.data
                 return True, l, len(l)
             return False, None, internal_size
 

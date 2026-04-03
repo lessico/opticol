@@ -4,14 +4,13 @@ This module implements the set-specific metaclasses that generate immutable Set 
 implementations with slot-based storage. Elements are stored directly in individual slots.
 """
 
-from itertools import zip_longest
 from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
-from opticol._codegen import def_fn, guard, rootit, spliced
+from opticol._codegen import def_fn, guard, rootit
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import END, Overflow
+from opticol._sentinel import ENDWithLength, Overflow
 
 
 class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
@@ -145,101 +144,112 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
         internal_size = len(slots)
 
         def _assign(self, s, from_outside):
-            if len(s) > internal_size:
+            length = len(s)
+            if length > internal_size:
                 if from_outside:
                     s = set(s)
                 setattr(self, slots[0], Overflow(s))
-                for slot in slots[1:]:
-                    setattr(self, slot, END)
+                for slot in slots[1:-1]:
+                    try:
+                        delattr(self, slot)
+                    except AttributeError:
+                        break
+                if internal_size > 1:
+                    setattr(self, slots[-1], ENDWithLength(-1))
             else:
-                sentinel = object()
-                for slot, v in zip_longest(slots, s, fillvalue=sentinel):
-                    if v is sentinel:
-                        setattr(self, slot, END)
-                    else:
-                        setattr(self, slot, v)
+                for slot, v in zip(slots, s):
+                    setattr(self, slot, v)
+                for slot in slots[length:-1]:
+                    try:
+                        delattr(self, slot)
+                    except AttributeError:
+                        break
+                if length < internal_size:
+                    setattr(self, slots[-1], ENDWithLength(length))
+
+        def _overflow_state(self) -> tuple[bool, Optional[set], int]:
+            last = getattr(self, slots[-1])
+            if isinstance(last, ENDWithLength):
+                inline_length = last.length
+                if inline_length < 0:
+                    data = getattr(self, slots[0]).data
+                    return True, data, len(data)
+                return False, None, inline_length
+            # internal_size == 1 overflow: slots[-1] == slots[0] holds Overflow directly
+            if isinstance(last, Overflow):
+                data = last.data
+                return True, data, len(data)
+            return False, None, internal_size
 
         def __init__(self, s):
             _assign(self, s, True)
 
-        __contains__ = def_fn(
-            rootit(f"""
-            def __contains__(self, value):
-                first = self.{slots[0]}
-                if isinstance(first, Overflow):
-                    return value in first.data
-                {spliced(4, [rootit(f"""
-                            if self.{slot} is END: return False
-                            if self.{slot} == value: return True""") for slot in slots])}
-                return False
-            """),
-            Overflow=Overflow,
-            END=END,
-        )
+        def __contains__(self, value):
+            overflowed, data, length = _overflow_state(self)
+            if overflowed:
+                return value in data
+            for slot in slots[:length]:
+                if getattr(self, slot) == value:
+                    return True
+            return False
 
-        __iter__ = OptimizedCollectionMeta[MutableSet]._mut_iter(
-            slots, Overflow, lambda o: o.data, END, lambda v: v
-        )
+        def __iter__(self):
+            overflowed, data, length = _overflow_state(self)
+            if overflowed:
+                yield from data
+                return
+            for slot in slots[:length]:
+                yield getattr(self, slot)
 
-        __len__ = OptimizedCollectionMeta[MutableSet]._mut_len(
-            slots, Overflow, lambda o: len(o.data), END
-        )
+        def __len__(self) -> int:
+            _, _, length = _overflow_state(self)
+            return length
 
         def add(self, value):
-            # If the set is overflowed, then just add directly to the overflow buffer.
-            first = getattr(self, slots[0])
-            if isinstance(first, Overflow):
-                first.data.add(value)
+            overflowed, data, length = _overflow_state(self)
+            if overflowed:
+                data.add(value)
                 return
 
-            # If the set state is managed on the slots, then check if the item has to be added at
-            # all before continuing.
-            for item in self:
-                if value == item:
+            for slot in slots[:length]:
+                if getattr(self, slot) == value:
                     return
 
-            # If not in overflow, check if there are any extra slots to put the new value in.
-            last = getattr(self, slots[-1])
-            if last is END:
-                idx = len(self)
-                setattr(self, slots[idx], value)
+            if length < internal_size:
+                setattr(self, slots[length], value)
+                if length + 1 < internal_size:
+                    getattr(self, slots[-1]).length = length + 1
+                # else: slots[length] == slots[-1], value overwrote the ENDWithLength marker
                 return
 
-            # Otherwise there are no extra slots, and the store just has to be reassigned.
             current = set(self)
             current.add(value)
             _assign(self, current, False)
-            return
 
         def discard(self, value):
-            # If the set is overflowed, then try to remove the item and check if the storage type
-            # needs to change.
-            first = getattr(self, slots[0])
-            if isinstance(first, Overflow):
-                first.data.discard(value)
-                if len(first.data) <= internal_size:
-                    _assign(self, first.data, False)
+            overflowed, data, length = _overflow_state(self)
+            if overflowed:
+                data.discard(value)
+                if len(data) <= internal_size:
+                    _assign(self, data, False)
                 return
 
-            # Otherwise, loop through to find the item and then swap with the last item.
-            swap_idx = len(slots) - 1
+            swap_idx = length - 1
             to_remove_slot_idx = None
-            for i, slot in enumerate(slots):
-                item = getattr(self, slot)
-                if item is END:
-                    swap_idx = i - 1
+            for i, slot in enumerate(slots[:length]):
+                if getattr(self, slot) == value:
+                    to_remove_slot_idx = i
                     break
 
-                if item == value:
-                    to_remove_slot_idx = i
+            if to_remove_slot_idx is None:
+                return
 
-            if to_remove_slot_idx is not None:
-                if to_remove_slot_idx == swap_idx:
-                    setattr(self, slots[to_remove_slot_idx], END)
-                else:
-                    swap_value = getattr(self, slots[swap_idx])
-                    setattr(self, slots[to_remove_slot_idx], swap_value)
-                    setattr(self, slots[swap_idx], END)
+            if to_remove_slot_idx != swap_idx:
+                setattr(self, slots[to_remove_slot_idx], getattr(self, slots[swap_idx]))
+
+            if swap_idx < internal_size - 1:
+                delattr(self, slots[swap_idx])
+            setattr(self, slots[-1], ENDWithLength(length - 1))
 
         def __repr__(self):
             if len(self) == 0:

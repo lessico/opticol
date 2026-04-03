@@ -20,7 +20,7 @@ class EndMarker:
 END = EndMarker()
 
 
-@dataclass(slots=True, frozen=True)
+@dataclass(slots=True)
 class ENDWithLength:
     """Length marker stored only in the final slot of a mutable sequence's slot array.
 
