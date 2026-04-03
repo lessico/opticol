@@ -219,7 +219,6 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 setattr(self, slots[length], value)
                 if length + 1 < internal_size:
                     getattr(self, slots[-1]).length = length + 1
-                # else: slots[length] == slots[-1], value overwrote the ENDWithLength marker
                 return
 
             current = set(self)
@@ -249,7 +248,12 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
 
             if swap_idx < internal_size - 1:
                 delattr(self, slots[swap_idx])
-            setattr(self, slots[-1], ENDWithLength(length - 1))
+
+            if swap_idx == internal_size - 1:
+                setattr(self, slots[-1], ENDWithLength(length - 1))
+            else:
+                getattr(self, slots[-1]).length = length - 1
+            
 
         def __repr__(self):
             if len(self) == 0:
