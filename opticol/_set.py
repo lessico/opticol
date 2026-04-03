@@ -65,12 +65,16 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
 
         __contains__ = def_fn(rootit(f"""
             def __contains__(self, value):
-                return {guard(internal_size > 0, " or ".join(f"self.{slot} == value" for slot in slots), "False")}
+                return {guard(
+                    internal_size > 0,
+                    " or ".join(f"self.{slot} == value" for slot in slots), "False")}
             """))
 
         __iter__ = def_fn(rootit(f"""
             def __iter__(self):
-                yield from {guard(internal_size > 0, "(" + ", ".join(f"self.{slot}" for slot in slots) + ",)", "()")}
+                yield from {guard(
+                    internal_size > 0,
+                    "(" + ", ".join(f"self.{slot}" for slot in slots) + ",)", "()")}
             """))
 
         def __len__(_):
@@ -173,9 +177,13 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             END=END,
         )
 
-        __iter__ = OptimizedCollectionMeta[MutableSet]._mut_iter(slots, Overflow, lambda o: o.data, END, lambda v: v)
+        __iter__ = OptimizedCollectionMeta[MutableSet]._mut_iter(
+            slots, Overflow, lambda o: o.data, END, lambda v: v
+        )
 
-        __len__ = OptimizedCollectionMeta[MutableSet]._mut_len(slots, Overflow, lambda o: len(o.data), END)
+        __len__ = OptimizedCollectionMeta[MutableSet]._mut_len(
+            slots, Overflow, lambda o: len(o.data), END
+        )
 
         def add(self, value):
             # If the set is overflowed, then just add directly to the overflow buffer.

@@ -112,7 +112,9 @@ class OptimizedCollectionMeta[C](ABCMeta):
                 if isinstance(first, overflow_type):
                     return overflow_selector(first)
 
-                {spliced(4, [(f"if inst.{slot} is end_object: return {i}") for i, slot in enumerate(slots)])}
+                {spliced(
+                    4,
+                    [f"if inst.{slot} is end_object: return {i}" for i, slot in enumerate(slots)])}
                 return {len(slots)}
             """),
             overflow_type=overflow_type,
@@ -128,7 +130,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
         end_object: object,
         value_selector: Callable,
     ) -> Callable[[Any], Iterator]:
-        """Return a generator function that iterates over elements in mutable collections supporting overflow.
+        """Create a function that iterates over elements in mutable collections supporting overflow.
 
         Similar to _mut_len, this handles iteration for collections that may have overflowed or
         underflowed to different representations.

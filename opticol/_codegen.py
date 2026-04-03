@@ -2,7 +2,7 @@
 Internal module to consolidate dynamic code generation logic and modifications.
 """
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 

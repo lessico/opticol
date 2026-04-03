@@ -21,6 +21,22 @@ END = EndMarker()
 
 
 @dataclass(slots=True, frozen=True)
+class ENDWithLength:
+    """Length marker stored only in the final slot of a mutable sequence's slot array.
+
+    Replaces the old approach of filling every empty slot with a sentinel. Only the last
+    slot is written; slots between the last valid element and the last slot are left
+    unassigned, saving memory.
+
+    Attributes:
+        length: When >= 0, the number of elements stored in the leading slots. When < 0,
+            the sequence is in overflow mode and the first slot holds an Overflow object.
+    """
+
+    length: int
+
+
+@dataclass(slots=True, frozen=True)
 class Overflow:
     """Wrapper for collections that exceed their optimized slot capacity.
 

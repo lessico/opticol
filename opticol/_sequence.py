@@ -4,13 +4,12 @@ This module implements the sequence-specific metaclasses that generate immutable
 Sequence and MutableSequence implementations with slot-based storage.
 """
 
-from itertools import zip_longest
 from typing import Any, Optional
 
 from collections.abc import Callable, MutableSequence, Sequence
 
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import END, Overflow
+from opticol._sentinel import ENDWithLength, Overflow
 
 
 def _adjust_index(idx: int, length: int) -> int:
@@ -142,44 +141,62 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
         internal_size = len(slots)
 
         def _assign(self, seq, from_outside):
-            if len(seq) > internal_size:
+            length = len(seq)
+            if length > internal_size:
                 if from_outside:
                     seq = list(seq)
+
                 setattr(self, slots[0], Overflow(seq))
-                for slot in slots[1:]:
-                    setattr(self, slot, END)
+                for slot in slots[1:-1]:
+                    try:
+                        delattr(self, slot)
+                    except AttributeError:
+                        break
+                if internal_size > 1:
+                    setattr(self, slots[-1], ENDWithLength(-1))
             else:
-                sentinel = object()
-                for slot, v in zip_longest(slots, seq, fillvalue=sentinel):
-                    if v is sentinel:
-                        setattr(self, slot, END)
-                    else:
-                        setattr(self, slot, v)
+                for slot, v in zip(slots, seq):
+                    setattr(self, slot, v)
+                for slot in slots[length:-1]:
+                    try:
+                        delattr(self, slot)
+                    except AttributeError:
+                        break
+                if length < internal_size:
+                    setattr(self, slots[-1], ENDWithLength(length))
+
+        def _overflow_state(self) -> tuple[bool, Optional[list], int]:
+            last = getattr(self, slots[-1])
+            if isinstance(last, ENDWithLength):
+                inline_length = last.length
+                if inline_length < 0:
+                    l = getattr(self, slots[0]).data
+                    return True, l, len(l)
+                return False, None, inline_length
+            if isinstance(last, Overflow):
+                l = getattr(self, slots[0]).data
+                return True, l, len(l)
+            return False, None, internal_size
 
         def __init__(self, seq):
             _assign(self, seq, True)
 
         def __getitem__(self, key):
-            first = getattr(self, slots[0])
-            overflowed = isinstance(first, Overflow)
+            overflowed, overflow_data, length = _overflow_state(self)
 
             match key:
                 case int():
                     if overflowed:
-                        return first.data[key]
+                        return overflow_data[key]
 
-                    key = _adjust_index(key, len(self))
-                    v = getattr(self, slots[key])
-                    if v is END:
-                        raise IndexError(f"{key} is outside of the expected bounds.")
-                    return v
+                    adjusted = _adjust_index(key, length)
+                    return getattr(self, slots[adjusted])
                 case slice():
                     if overflowed:
-                        base = first.data[key]
+                        base = overflow_data[key]
                     else:
-                        indices = range(*key.indices(len(self)))
-                        first = getattr(self, slots[0])
-                        base = [self[i] for i in indices]
+                        indices = range(*key.indices(length))
+                        base = [getattr(self, slots[i]) for i in indices]
 
                     if project is None:
                         return base
@@ -191,22 +208,21 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     )
 
         def __setitem__(self, key, value):
-            first = getattr(self, slots[0])
-            overflowed = isinstance(first, Overflow)
+            overflowed, overflow_data, length = _overflow_state(self)
 
             match key:
                 case int():
                     if overflowed:
-                        first.data[key] = value
+                        overflow_data[key] = value
                         return
 
-                    adjusted = _adjust_index(key, len(self))
+                    adjusted = _adjust_index(key, length)
                     setattr(self, slots[adjusted], value)
                 case slice():
                     if overflowed:
-                        first.data[key] = value
-                        if len(first.data) <= internal_size:
-                            _assign(self, first.data, False)
+                        overflow_data[key] = value
+                        if length <= internal_size:
+                            _assign(self, overflow_data, False)
                         return
 
                     current = list(self)
@@ -222,7 +238,9 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
             del current[key]
             _assign(self, current, False)
 
-        __len__ = OptimizedCollectionMeta[MutableSequence]._mut_len(slots, Overflow, lambda o: len(o.data), END)
+        def __len__(self) -> int:
+            _, _, length = _overflow_state(self)
+            return length
 
         def insert(self, index, value):
             current = list(self)

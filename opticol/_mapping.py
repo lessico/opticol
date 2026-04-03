@@ -55,7 +55,9 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
                         "Expected provided Mapping to have exactly {internal_size} elements but it "
                         f"has {{len(mapping)}}."
                     )
-                {guard(internal_size > 0, f"({",".join(f"self.{slot}" for slot in slots)},) = mapping.items()")}
+                {guard(
+                    internal_size > 0,
+                    f"({",".join(f"self.{slot}" for slot in slots)},) = mapping.items()")}
             """))
 
         __getitem__ = def_fn(rootit(f"""
@@ -66,7 +68,9 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
 
         __iter__ = def_fn(rootit(f"""
             def __iter__(self):
-                yield from {guard(internal_size > 0, "(" + ", ".join(f"self.{slot}[0]" for slot in slots) + ",)", "()")}
+                yield from {guard(
+                    internal_size > 0,
+                    "(" + ", ".join(f"self.{slot}[0]" for slot in slots) + ",)", "()")}
             """))
 
         def __len__(_):
@@ -162,7 +166,9 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
             del current[key]
             _assign(self, current, False)
 
-        __iter__ = OptimizedCollectionMeta[MutableMapping]._mut_iter(slots, dict, lambda d: d, None, operator.itemgetter(0))
+        __iter__ = OptimizedCollectionMeta[MutableMapping]._mut_iter(
+            slots, dict, lambda d: d, None, operator.itemgetter(0)
+        )
 
         __len__ = OptimizedCollectionMeta[MutableMapping]._mut_len(slots, dict, len, None)
 
