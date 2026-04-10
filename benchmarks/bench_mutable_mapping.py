@@ -21,6 +21,7 @@ benchmark_suite(
     rounds=ROUNDS,
     cases=cases,
     bench=[
+        mapping_ops.init,
         mapping_ops.getitem,
         mapping_ops.iter_,
         mapping_ops.len_,
