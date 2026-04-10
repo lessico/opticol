@@ -12,6 +12,7 @@ from typing import Any, Optional
 
 from opticol._codegen import def_fn, guard, rootit, spliced
 from opticol._meta import OptimizedCollectionMeta
+from opticol._sentinel import END
 
 
 class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
@@ -123,30 +124,19 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, mapping, from_outside):
-            if len(mapping) > internal_size:
-                if from_outside:
-                    mapping = dict(mapping)
-                setattr(self, slots[0], mapping)
-                for slot in slots[1:]:
-                    setattr(self, slot, None)
-            else:
-                sentinel = object()
-                for pair, slot in zip_longest(mapping.items(), slots, fillvalue=sentinel):
-                    if pair is sentinel:
-                        setattr(self, slot, None)
-                    else:
-                        setattr(self, slot, pair)
+        _assign = OptimizedCollectionMeta[MutableMapping]._assign(slots, dict)
+        _mut_state = OptimizedCollectionMeta[MutableMapping]._mut_state(slots)
+
 
         def __init__(self, mapping):
-            _assign(self, mapping, True)
+            _assign(self, mapping, mapping.items(), True)
 
         def __getitem__(self, key):
-            first = getattr(self, slots[0])
-            if isinstance(first, dict):
-                return first[key]
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                return data[key]
 
-            for slot in slots:
+            for slot in slots[:length]:
                 item = getattr(self, slot)
                 if item is None:
                     break
@@ -157,34 +147,63 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
             raise KeyError(key)
 
         def __setitem__(self, key, value):
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                data[key] = value
+                return
+
+            for slot in slots[:length]:
+                tup = getattr(self, slot)
+                if tup[0] == key:
+                    setattr(self, slot, (tup[0], value))
+                    return
+
+            if length < internal_size:
+                tup = (key, value)
+                setattr(self, slots[length], tup)
+                if length < internal_size - 1:
+                    getattr(self, slots[-1]).length = length + 1
+
             current = dict(self)
             current[key] = value
-            _assign(self, current, False)
+            _assign(self, current, current.items(), False)
 
         def __delitem__(self, key):
             current = dict(self)
             del current[key]
-            _assign(self, current, False)
+            _assign(self, current, current.items(), False)
 
-        __iter__ = OptimizedCollectionMeta[MutableMapping]._mut_iter(
-            slots, dict, lambda d: d, None, operator.itemgetter(0)
-        )
+        def __iter__(self):
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                yield from data
+                return
+            for slot in slots[:length]:
+                yield getattr(self, slot)[0]
 
-        __len__ = OptimizedCollectionMeta[MutableMapping]._mut_len(slots, dict, len, None)
+        def __len__(self) -> int:
+            _, _, length = _mut_state(self)
+            return length
 
         def popitem(self):
-            first = getattr(self, slots[0])
-            if isinstance(first, dict):
-                return first.popitem()
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                item = data.popitem()
+                if len(data) <= internal_size:
+                    _assign(self, data, data.items(), False)
+                return item
 
-            # Walk backward through slots to find the last non-empty slot (LIFO order)
-            for slot in reversed(slots):
-                item = getattr(self, slot)
-                if item is not None:
-                    setattr(self, slot, None)
-                    return item
+            if length == 0:
+                raise KeyError
 
-            raise KeyError
+            last = getattr(self, slots[length - 1])
+            if length == internal_size:
+                setattr(self, slots[-1], END(length - 1))
+                return last
+
+            end = getattr(self, slots[-1])
+            end.length -= 1
+            return last
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]

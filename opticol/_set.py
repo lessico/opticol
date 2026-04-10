@@ -10,7 +10,7 @@ from collections.abc import Callable, MutableSet, Sequence, Set
 
 from opticol._codegen import def_fn, guard, rootit
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import ENDWithLength, Overflow
+from opticol._sentinel import END, Overflow
 
 
 class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
@@ -143,49 +143,14 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, s, from_outside):
-            length = len(s)
-            if length > internal_size:
-                if from_outside:
-                    s = set(s)
-                setattr(self, slots[0], Overflow(s))
-                for slot in slots[1:-1]:
-                    try:
-                        delattr(self, slot)
-                    except AttributeError:
-                        break
-                if internal_size > 1:
-                    setattr(self, slots[-1], ENDWithLength(-1))
-            else:
-                for slot, v in zip(slots, s):
-                    setattr(self, slot, v)
-                for slot in slots[length:-1]:
-                    try:
-                        delattr(self, slot)
-                    except AttributeError:
-                        break
-                if length < internal_size:
-                    setattr(self, slots[-1], ENDWithLength(length))
-
-        def _overflow_state(self) -> tuple[bool, Optional[set], int]:
-            last = getattr(self, slots[-1])
-            if isinstance(last, ENDWithLength):
-                inline_length = last.length
-                if inline_length < 0:
-                    data = getattr(self, slots[0]).data
-                    return True, data, len(data)
-                return False, None, inline_length
-            # internal_size == 1 overflow: slots[-1] == slots[0] holds Overflow directly
-            if isinstance(last, Overflow):
-                data = last.data
-                return True, data, len(data)
-            return False, None, internal_size
+        _assign = OptimizedCollectionMeta[MutableSet]._assign(slots, set)
+        _mut_state = OptimizedCollectionMeta[MutableSet]._mut_state(slots)
 
         def __init__(self, s):
-            _assign(self, s, True)
+            _assign(self, s, s, True)
 
         def __contains__(self, value):
-            overflowed, data, length = _overflow_state(self)
+            overflowed, data, length = _mut_state(self)
             if overflowed:
                 return value in data
             for slot in slots[:length]:
@@ -194,7 +159,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             return False
 
         def __iter__(self):
-            overflowed, data, length = _overflow_state(self)
+            overflowed, data, length = _mut_state(self)
             if overflowed:
                 yield from data
                 return
@@ -202,11 +167,11 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 yield getattr(self, slot)
 
         def __len__(self) -> int:
-            _, _, length = _overflow_state(self)
+            _, _, length = _mut_state(self)
             return length
 
         def add(self, value):
-            overflowed, data, length = _overflow_state(self)
+            overflowed, data, length = _mut_state(self)
             if overflowed:
                 data.add(value)
                 return
@@ -223,14 +188,14 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
 
             current = set(self)
             current.add(value)
-            _assign(self, current, False)
+            _assign(self, current, current, False)
 
         def discard(self, value):
-            overflowed, data, length = _overflow_state(self)
+            overflowed, data, length = _mut_state(self)
             if overflowed:
                 data.discard(value)
                 if len(data) <= internal_size:
-                    _assign(self, data, False)
+                    _assign(self, data, data, False)
                 return
 
             swap_idx = length - 1
@@ -250,7 +215,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 delattr(self, slots[swap_idx])
 
             if swap_idx == internal_size - 1:
-                setattr(self, slots[-1], ENDWithLength(length - 1))
+                setattr(self, slots[-1], END(length - 1))
             else:
                 getattr(self, slots[-1]).length = length - 1
             

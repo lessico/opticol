@@ -9,7 +9,7 @@ from typing import Any, Optional
 from collections.abc import Callable, MutableSequence, Sequence
 
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import ENDWithLength, Overflow
+from opticol._sentinel import END, Overflow
 
 
 def _adjust_index(idx: int, length: int) -> int:
@@ -140,49 +140,14 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, seq, from_outside):
-            length = len(seq)
-            if length > internal_size:
-                if from_outside:
-                    seq = list(seq)
-
-                setattr(self, slots[0], Overflow(seq))
-                for slot in slots[1:-1]:
-                    try:
-                        delattr(self, slot)
-                    except AttributeError:
-                        break
-                if internal_size > 1:
-                    setattr(self, slots[-1], ENDWithLength(-1))
-            else:
-                for slot, v in zip(slots, seq):
-                    setattr(self, slot, v)
-                for slot in slots[length:-1]:
-                    try:
-                        delattr(self, slot)
-                    except AttributeError:
-                        break
-                if length < internal_size:
-                    setattr(self, slots[-1], ENDWithLength(length))
-
-        def _overflow_state(self) -> tuple[bool, Optional[list], int]:
-            last = getattr(self, slots[-1])
-            if isinstance(last, ENDWithLength):
-                inline_length = last.length
-                if inline_length < 0:
-                    l = getattr(self, slots[0]).data
-                    return True, l, len(l)
-                return False, None, inline_length
-            if isinstance(last, Overflow):
-                l = last.data
-                return True, l, len(l)
-            return False, None, internal_size
+        _assign = OptimizedCollectionMeta[MutableSequence]._assign(slots, list)
+        _mut_state = OptimizedCollectionMeta[MutableSequence]._mut_state(slots)
 
         def __init__(self, seq):
-            _assign(self, seq, True)
+            _assign(self, seq, seq, True)
 
         def __getitem__(self, key):
-            overflowed, overflow_data, length = _overflow_state(self)
+            overflowed, overflow_data, length = _mut_state(self)
 
             match key:
                 case int():
@@ -208,7 +173,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     )
 
         def __setitem__(self, key, value):
-            overflowed, overflow_data, length = _overflow_state(self)
+            overflowed, overflow_data, length = _mut_state(self)
 
             match key:
                 case int():
@@ -222,12 +187,12 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     if overflowed:
                         overflow_data[key] = value
                         if length <= internal_size:
-                            _assign(self, overflow_data, False)
+                            _assign(self, overflow_data, overflow_data, False)
                         return
 
                     current = list(self)
                     current[key] = value
-                    _assign(self, current, False)
+                    _assign(self, current, current, False)
                 case _:
                     raise TypeError(
                         f"Sequence accessors must be integers or slices, not {type(key)}"
@@ -236,16 +201,16 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
         def __delitem__(self, key):
             current = list(self)
             del current[key]
-            _assign(self, current, False)
+            _assign(self, current, current, False)
 
         def __len__(self) -> int:
-            _, _, length = _overflow_state(self)
+            _, _, length = _mut_state(self)
             return length
 
         def insert(self, index, value):
             current = list(self)
             current.insert(index, value)
-            _assign(self, current, False)
+            _assign(self, current, current, False)
 
         def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"
