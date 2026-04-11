@@ -39,9 +39,9 @@ def guard(flag: bool, code: str, other: str = "") -> str:
     return other
 
 
-def spliced(level: int, strs: Sequence[str]) -> str:
+def spliced(level: int, strs: Sequence[Sequence[str]]) -> str:
     sep = "\n" + ("    " * level)
-    ls = [l for s in strs for l in s.splitlines()]
+    ls = [l for s in strs for l in s]
     return sep.join(ls)
 
 

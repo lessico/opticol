@@ -63,7 +63,7 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
 
         __getitem__ = def_fn(rootit(f"""
             def __getitem__(self, key):
-                {spliced(4, [f"if self.{slot}[0] == key: return self.{slot}[1]" for slot in slots])}
+                {spliced(4, [(f"if self.{slot}[0] == key: return self.{slot}[1]",) for slot in slots])}
                 raise KeyError(key)
             """))
 
@@ -131,20 +131,22 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         def __init__(self, mapping):
             _assign(self, mapping, mapping.items(), True)
 
-        def __getitem__(self, key):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                return data[key]
+        __getitem__ = def_fn(rootit(f"""
+            def __getitem__(self, key):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    return data[key]
 
-            for slot in slots[:length]:
-                item = getattr(self, slot)
-                if item is None:
-                    break
+                {spliced(
+                    4,
+                    [(f"if {i} >= length: raise KeyError(key)",
+                      f"item = self.{slot}",
+                      "if item[0] == key: return item[1]") for i, slot in enumerate(slots)])}
 
-                if item[0] == key:
-                    return item[1]
-
-            raise KeyError(key)
+                raise KeyError(key)
+            """),
+            _mut_state=_mut_state,
+            KeyError=KeyError)
 
         def __setitem__(self, key, value):
             overflowed, data, length = _mut_state(self)
@@ -180,10 +182,6 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                 return
             for slot in slots[:length]:
                 yield getattr(self, slot)[0]
-
-        def __len__(self) -> int:
-            _, _, length = _mut_state(self)
-            return length
 
         def popitem(self):
             overflowed, data, length = _mut_state(self)

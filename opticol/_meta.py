@@ -116,20 +116,24 @@ class OptimizedCollectionMeta[C](ABCMeta):
     @staticmethod
     def _mut_state(slots: Sequence[str]) -> Callable[[C], tuple[bool, Optional[C], int]]:
         internal_size = len(slots)
-        def f(self):
-            last = getattr(self, slots[-1])
-            if isinstance(last, END):
-                inline_length = last.length
-                if inline_length < 0:
-                    l = getattr(self, slots[0]).data
+        return def_fn(rootit(f"""
+            def f(self):
+                last = self.{slots[-1]}
+                if isinstance(last, END):
+                    inline_length = last.length
+                    if inline_length < 0:
+                        l = self.{slots[0]}.data
+                        return True, l, len(l)
+                    return False, None, inline_length
+                if isinstance(last, Overflow):
+                    l = last.data
                     return True, l, len(l)
-                return False, None, inline_length
-            if isinstance(last, Overflow):
-                l = last.data
-                return True, l, len(l)
-            return False, None, internal_size
-
-        return f
+                return False, None, internal_size
+            """),
+        slots=slots,
+        internal_size=internal_size,
+        END=END,
+        Overflow=Overflow)
 
     @staticmethod
     def _len(slots: Sequence[str]) -> Callable[[C], int]:
