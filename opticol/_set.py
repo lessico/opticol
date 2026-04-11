@@ -145,6 +145,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
 
         _assign = OptimizedCollectionMeta[MutableSet]._assign(slots, set)
         _mut_state = OptimizedCollectionMeta[MutableSet]._mut_state(slots)
+        _len = OptimizedCollectionMeta[MutableSet]._len(slots)
 
         def __init__(self, s):
             _assign(self, s, s, True)
@@ -165,10 +166,6 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 return
             for slot in slots[:length]:
                 yield getattr(self, slot)
-
-        def __len__(self) -> int:
-            _, _, length = _mut_state(self)
-            return length
 
         def add(self, value):
             overflowed, data, length = _mut_state(self)
@@ -240,7 +237,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__
         namespace["__iter__"] = __iter__
-        namespace["__len__"] = __len__
+        namespace["__len__"] = _len
         namespace["add"] = add
         namespace["discard"] = discard
         namespace["__repr__"] = __repr__

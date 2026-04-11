@@ -126,7 +126,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
 
         _assign = OptimizedCollectionMeta[MutableMapping]._assign(slots, dict)
         _mut_state = OptimizedCollectionMeta[MutableMapping]._mut_state(slots)
-
+        _len = OptimizedCollectionMeta[MutableMapping]._len(slots)
 
         def __init__(self, mapping):
             _assign(self, mapping, mapping.items(), True)
@@ -214,7 +214,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         namespace["__setitem__"] = __setitem__
         namespace["__delitem__"] = __delitem__
         namespace["__iter__"] = __iter__
-        namespace["__len__"] = __len__
+        namespace["__len__"] = _len
         namespace["__repr__"] = __repr__
 
         # Override mixin popitem to match dict's LIFO ordering. Although it's not a requirement of

@@ -130,3 +130,20 @@ class OptimizedCollectionMeta[C](ABCMeta):
             return False, None, internal_size
 
         return f
+
+    @staticmethod
+    def _len(slots: Sequence[str]) -> Callable[[C], int]:
+        def f(self):
+            last = getattr(self, slots[-1])
+            if isinstance(last, END):
+                inline_length = last.length
+                if inline_length < 0:
+                    l = getattr(self, slots[0]).data
+                    return len(l)
+                return inline_length
+            if isinstance(last, Overflow):
+                l = last.data
+                return len(l)
+            return len(slots)
+
+        return f

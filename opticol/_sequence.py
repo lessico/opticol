@@ -142,6 +142,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
 
         _assign = OptimizedCollectionMeta[MutableSequence]._assign(slots, list)
         _mut_state = OptimizedCollectionMeta[MutableSequence]._mut_state(slots)
+        _len = OptimizedCollectionMeta[MutableSequence]._len(slots)
 
         def __init__(self, seq):
             _assign(self, seq, seq, True)
@@ -203,10 +204,6 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
             del current[key]
             _assign(self, current, current, False)
 
-        def __len__(self) -> int:
-            _, _, length = _mut_state(self)
-            return length
-
         def insert(self, index, value):
             current = list(self)
             current.insert(index, value)
@@ -219,6 +216,6 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
         namespace["__getitem__"] = __getitem__
         namespace["__setitem__"] = __setitem__
         namespace["__delitem__"] = __delitem__
-        namespace["__len__"] = __len__
+        namespace["__len__"] = _len
         namespace["insert"] = insert
         namespace["__repr__"] = __repr__
