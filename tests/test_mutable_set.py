@@ -177,6 +177,9 @@ def test_mut_set_add():
     # Add duplicate (no-op)
     harness({1, 2, 3}, [add(2), len, contains(2)])
 
+    # Add duplicate when free slots are available (no-op)
+    harness({1, 2}, [add(1), len, contains(1)], internal_sizes=[3, 4])
+
     # Add to empty
     harness(set(), [add(1), len, contains(1)])
 

@@ -10,7 +10,7 @@ def _seq_maker(i: int) -> Callable[[], list[int]]:
 
 
 cases = [
-    BenchmarkCase[Sequence](f"immutable_{i}", create_seq_class(i), _seq_maker(i))
+    BenchmarkCase[Sequence](f"sequence_immutable_{i}", create_seq_class(i), _seq_maker(i))
     for i in range(1, MAX_FIXTURE_SIZE)
 ]
 

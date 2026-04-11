@@ -1,9 +1,6 @@
 """Shared benchmark operation descriptors for Set and MutableSet benchmarks."""
 
 from collections.abc import Callable, MutableSet, Set
-import itertools
-import math
-import random
 
 from benchmarks.common import (
     BenchmarkCase,
