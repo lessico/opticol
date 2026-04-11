@@ -290,7 +290,7 @@ def test_mut_mapping_overflow_setitem():
     # Overwrite existing key while overflowed
     harness(
         {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
-        [setitem("c", 100), getitem("c")],
+        [getitem("c"), setitem("c", 100), getitem("c")],
         internal_sizes=[2, 3],
     )
 
