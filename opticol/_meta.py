@@ -6,8 +6,11 @@ methods for mutable collection operations.
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Optional
+
+from opticol._codegen import def_fn, rootit
+from opticol._sentinel import END, Overflow
 
 
 class OptimizedCollectionMeta[C](ABCMeta):
@@ -80,73 +83,85 @@ class OptimizedCollectionMeta[C](ABCMeta):
         """
 
     @staticmethod
-    def _mut_len[O](
-        inst: Any,
-        slots: Sequence[str],
-        overflow_type: type[O],
-        overflow_selector: Callable[[O], int],
-        end_object: object,
-    ) -> int:
-        """Calculate length for mutable collections supporting overflow.
+    def _assign(
+        slots: Sequence[str], ctor: Callable[[C], C]
+    ) -> Callable[[C, C, Iterable, bool], None]:
+        return def_fn(
+            rootit(f"""
+            def _assign(self, collection, iterable, from_outside):
+                length = len(collection)
+                if length > internal_size:
+                    if from_outside:
+                        collection = ctor(collection)
 
-        Mutable collections can exceed their allocated slot count, triggering overflow to a standard
-        collection type or they may underflow and use sentinel objects to represent absent values.
-        This helper assumes the instance follows these conventions and returns its computed length.
-
-        Args:
-            inst: The collection instance.
-            slots: Slot names to check for elements.
-            overflow_type: Type used when collection exceeds slot capacity.
-            overflow_selector: Function to extract length from overflow object.
-            end_object: Sentinel marking unused slots.
-
-        Returns:
-            The number of elements in the collection.
-        """
-        first = getattr(inst, slots[0])
-        if isinstance(first, overflow_type):
-            return overflow_selector(first)
-
-        count = 0
-        for slot in slots:
-            if getattr(inst, slot) is end_object:
-                break
-            count += 1
-
-        return count
+                    self.{slots[0]} = Overflow(collection)
+                    for slot in slots[1:-1]:
+                        try:
+                            delattr(self, slot)
+                        except AttributeError:
+                            break
+                    if internal_size > 1:
+                        self.{slots[-1]} = END(-1)
+                else:
+                    for slot, v in zip(slots, iterable):
+                        setattr(self, slot, v)
+                    for slot in slots[length:-1]:
+                        try:
+                            delattr(self, slot)
+                        except AttributeError:
+                            break
+                    if length < internal_size:
+                        self.{slots[-1]} = END(length)
+            """),
+            internal_size=len(slots),
+            slots=slots,
+            ctor=ctor,
+            Overflow=Overflow,
+            END=END,
+            zip=zip,
+            AttributeError=AttributeError,
+        )
 
     @staticmethod
-    def _mut_iter[O](
-        inst: Any,
-        slots: Sequence[str],
-        overflow_type: type[O],
-        overflow_selector: Callable[[O], Iterable],
-        end_object: object,
-        value_selector: Callable,
-    ) -> Iterator:
-        """Iterate over elements in mutable collections supporting overflow.
+    def _mut_state(slots: Sequence[str]) -> Callable[[C], tuple[bool, Optional[C], int]]:
+        return def_fn(
+            rootit(f"""
+            def _mut_state(self):
+                last = self.{slots[-1]}
+                if isinstance(last, END):
+                    inline_length = last.length
+                    if inline_length < 0:
+                        l = self.{slots[0]}.data
+                        return True, l, len(l)
+                    return False, None, inline_length
+                if isinstance(last, Overflow):
+                    l = last.data
+                    return True, l, len(l)
+                return False, None, internal_size
+            """),
+            internal_size=len(slots),
+            END=END,
+            Overflow=Overflow,
+        )
 
-        Similar to _mut_len, this handles iteration for collections that may have overflowed or
-        underflowed to different representations.
-
-        Args:
-            inst: The collection instance.
-            slots: Slot names to iterate over.
-            overflow_type: Type used when collection exceeds slot capacity.
-            overflow_selector: Function to extract iterable from overflow object.
-            end_object: Sentinel marking unused slots.
-            value_selector: Function to extract value from slot content.
-
-        Yields:
-            Elements from the collection.
-        """
-        first = getattr(inst, slots[0])
-        if isinstance(first, overflow_type):
-            yield from overflow_selector(first)
-            return
-
-        for slot in slots:
-            v = getattr(inst, slot)
-            if v is end_object:
-                return
-            yield value_selector(v)
+    @staticmethod
+    def _len(slots: Sequence[str]) -> Callable[[C], int]:
+        return def_fn(
+            rootit(f"""
+            def _len(self):
+                last = self.{slots[-1]}
+                if isinstance(last, END):
+                    inline_length = last.length
+                    if inline_length < 0:
+                        l = self.{slots[0]}.data
+                        return len(l)
+                    return inline_length
+                if isinstance(last, Overflow):
+                    l = last.data
+                    return len(l)
+                return internal_size
+            """),
+            internal_size=len(slots),
+            END=END,
+            Overflow=Overflow,
+        )

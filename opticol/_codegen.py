@@ -2,18 +2,47 @@
 Internal module to consolidate dynamic code generation logic and modifications.
 """
 
-from collections.abc import Iterable
+from collections.abc import Sequence
+from typing import Any
 
 
-def guard(flag: bool, code: str) -> str:
+def def_fn(code: str, **kwargs) -> Any:
+    """
+    Easily define a function dynamically using a string at runtime.
+
+    Args:
+        code: The code that defines the function and will be dynamically executed.
+        kwargs: The items to add to the namespace the function will be defined in.
+
+    Returns:
+        The object that was added to the dynamic namespace by the code string.
+
+    Raises:
+        A runtime error if not exactly 1 object was added to this namespace.
+    """
+    original_keys = set(kwargs.keys())
+    ns: dict[str, Any] = kwargs
+    exec(code, ns)
+    current_keys = set(kwargs.keys())
+    defined = current_keys - original_keys - {"__builtins__"}
+
+    if len(defined) == 1:
+        key = defined.pop()
+        return ns[key]
+
+    raise RuntimeError("The dynamic execution namespace had an unexpected value.")
+
+
+def guard(flag: bool, code: str, other: str = "") -> str:
     if flag:
         return code
-    return ""
+    return other
 
 
-def spliced(level: int, lines: Iterable[str]) -> str:
+def spliced(level: int, strs: Sequence[str]) -> str:
     sep = "\n" + ("    " * level)
-    return sep.join(lines)
+    ls = [l for s in strs for l in rootit(s).splitlines()]
+    return sep.join(ls)
 
 
 def rootit(code: str) -> str:

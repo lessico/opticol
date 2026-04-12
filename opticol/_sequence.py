@@ -4,13 +4,12 @@ This module implements the sequence-specific metaclasses that generate immutable
 Sequence and MutableSequence implementations with slot-based storage.
 """
 
-from itertools import zip_longest
 from typing import Any, Optional
 
 from collections.abc import Callable, MutableSequence, Sequence
 
+from opticol._codegen import def_fn, rootit, spliced
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import END, Overflow
 
 
 def _adjust_index(idx: int, length: int) -> int:
@@ -67,20 +66,23 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, seq):
-            if len(seq) != internal_size:
-                raise ValueError(
-                    f"Expected provided Sequence to have exactly {internal_size} elements but it "
-                    f"has {len(seq)}."
-                )
+        __init__ = def_fn(rootit(f"""
+            def __init__(self, seq):
+                if len(seq) != {internal_size}:
+                    raise ValueError(
+                        f"Expected provided Sequence to have exactly {internal_size} elements but "
+                        f"it has {{len(seq)}}."
+                    )
 
-            for slot, v in zip(slots, seq, strict=True):
-                setattr(self, slot, v)
+                {spliced(
+                    4,
+                    [f"self.{slots[i]} = seq[{i}]" for i in range(len(slots))]
+                )}
+            """))
 
         def __getitem__(self, key):
             match key:
                 case int():
-                    key = _adjust_index(key, len(self))
                     return getattr(self, slots[key])
                 case slice():
                     indices = range(*key.indices(len(self)))
@@ -142,43 +144,29 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, seq):
-            if len(seq) > internal_size:
-                setattr(self, slots[0], Overflow(seq))
-                for slot in slots[1:]:
-                    setattr(self, slot, END)
-            else:
-                sentinel = object()
-                for slot, v in zip_longest(slots, seq, fillvalue=sentinel):
-                    if v is sentinel:
-                        setattr(self, slot, END)
-                    else:
-                        setattr(self, slot, v)
+        _assign = OptimizedCollectionMeta[MutableSequence]._assign(slots, list)
+        _mut_state = OptimizedCollectionMeta[MutableSequence]._mut_state(slots)
+        _len = OptimizedCollectionMeta[MutableSequence]._len(slots)
 
         def __init__(self, seq):
-            _assign(self, seq)
+            _assign(self, seq, seq, True)
 
         def __getitem__(self, key):
-            first = getattr(self, slots[0])
-            overflowed = isinstance(first, Overflow)
+            overflowed, overflow_data, length = _mut_state(self)
 
             match key:
                 case int():
                     if overflowed:
-                        return first.data[key]
+                        return overflow_data[key]
 
-                    key = _adjust_index(key, len(self))
-                    v = getattr(self, slots[key])
-                    if v is END:
-                        raise IndexError(f"{key} is outside of the expected bounds.")
-                    return v
+                    adjusted = _adjust_index(key, length)
+                    return getattr(self, slots[adjusted])
                 case slice():
                     if overflowed:
-                        base = first.data[key]
+                        base = overflow_data[key]
                     else:
-                        indices = range(*key.indices(len(self)))
-                        first = getattr(self, slots[0])
-                        base = [self[i] for i in indices]
+                        indices = range(*key.indices(length))
+                        base = [getattr(self, slots[i]) for i in indices]
 
                     if project is None:
                         return base
@@ -190,24 +178,40 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     )
 
         def __setitem__(self, key, value):
-            current = list(self)
-            current[key] = value
-            _assign(self, current)
+            overflowed, overflow_data, length = _mut_state(self)
+
+            match key:
+                case int():
+                    if overflowed:
+                        overflow_data[key] = value
+                        return
+
+                    adjusted = _adjust_index(key, length)
+                    setattr(self, slots[adjusted], value)
+                case slice():
+                    if overflowed:
+                        overflow_data[key] = value
+                        if length <= internal_size:
+                            _assign(self, overflow_data, overflow_data, False)
+                        return
+
+                    current = list(self)
+                    current[key] = value
+                    _assign(self, current, current, False)
+                case _:
+                    raise TypeError(
+                        f"Sequence accessors must be integers or slices, not {type(key)}"
+                    )
 
         def __delitem__(self, key):
             current = list(self)
             del current[key]
-            _assign(self, current)
-
-        def __len__(self):
-            return OptimizedCollectionMeta._mut_len(
-                self, slots, Overflow, lambda o: len(o.data), END
-            )
+            _assign(self, current, current, False)
 
         def insert(self, index, value):
             current = list(self)
             current.insert(index, value)
-            _assign(self, current)
+            _assign(self, current, current, False)
 
         def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"
@@ -216,6 +220,6 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
         namespace["__getitem__"] = __getitem__
         namespace["__setitem__"] = __setitem__
         namespace["__delitem__"] = __delitem__
-        namespace["__len__"] = __len__
+        namespace["__len__"] = _len
         namespace["insert"] = insert
         namespace["__repr__"] = __repr__

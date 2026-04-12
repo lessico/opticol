@@ -8,16 +8,19 @@ from dataclasses import dataclass
 from typing import Any
 
 
-@dataclass(slots=True, frozen=True)
-class EndMarker:
-    """Sentinel class marking the end of used slots in mutable collections.
+@dataclass(slots=True)
+class END:
+    """Length marker stored only in the final slot of a mutable sequence's slot array.
 
-    The only instance of this class is stored in unused slots to distinguish them from slots
-    containing None or other falsy values.
+    Only the last slot is written; slots between the last valid element and the last slot are left
+    unassigned, saving memory.
+
+    Attributes:
+        length: When >= 0, the number of elements stored in the leading slots. When < 0, the
+            sequence is in overflow mode and the first slot holds an Overflow object.
     """
 
-
-END = EndMarker()
+    length: int
 
 
 @dataclass(slots=True, frozen=True)

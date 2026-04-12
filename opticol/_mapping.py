@@ -6,11 +6,11 @@ an individual slot.
 """
 
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
-from itertools import zip_longest
-import operator
 from typing import Any, Optional
 
+from opticol._codegen import def_fn, guard, rootit, spliced
 from opticol._meta import OptimizedCollectionMeta
+from opticol._sentinel import END
 
 
 class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
@@ -47,25 +47,30 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, mapping):
-            if len(mapping) != internal_size:
-                raise ValueError(
-                    f"Expected provided Mapping to have exactly {internal_size} elements but it "
-                    f"has {len(mapping)}."
-                )
+        __init__ = def_fn(rootit(f"""
+            def __init__(self, mapping):
+                if len(mapping) != {internal_size}:
+                    raise ValueError(
+                        "Expected provided Mapping to have exactly {internal_size} elements but it "
+                        f"has {{len(mapping)}}."
+                    )
+                {guard(
+                    internal_size > 0,
+                    f"({",".join(f"self.{slot}" for slot in slots)},) = mapping.items()")}
+            """))
 
-            for slot, t in zip(slots, mapping.items(), strict=True):
-                setattr(self, slot, t)
+        __getitem__ = def_fn(rootit(f"""
+            def __getitem__(self, key):
+                {spliced(4, [f"if self.{slot}[0] == key: return self.{slot}[1]" for slot in slots])}
+                raise KeyError(key)
+            """))
 
-        def __getitem__(self, key):
-            for slot in slots:
-                item = getattr(self, slot)
-                if item[0] == key:
-                    return item[1]
-            raise KeyError(key)
-
-        def __iter__(self):
-            yield from (getattr(self, slot)[0] for slot in slots)
+        __iter__ = def_fn(rootit(f"""
+            def __iter__(self):
+                yield from {guard(
+                    internal_size > 0,
+                    "(" + ", ".join(f"self.{slot}[0]" for slot in slots) + ",)", "()")}
+            """))
 
         def __len__(_):
             return internal_size
@@ -117,68 +122,87 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, mapping):
-            if len(mapping) > internal_size:
-                setattr(self, slots[0], mapping)
-                for slot in slots[1:]:
-                    setattr(self, slot, None)
-            else:
-                sentinel = object()
-                for pair, slot in zip_longest(mapping.items(), slots, fillvalue=sentinel):
-                    if pair is sentinel:
-                        setattr(self, slot, None)
-                    else:
-                        setattr(self, slot, pair)
+        _assign = OptimizedCollectionMeta[MutableMapping]._assign(slots, dict)
+        _mut_state = OptimizedCollectionMeta[MutableMapping]._mut_state(slots)
+        _len = OptimizedCollectionMeta[MutableMapping]._len(slots)
 
         def __init__(self, mapping):
-            _assign(self, mapping)
+            _assign(self, mapping, mapping.items(), True)
 
-        def __getitem__(self, key):
-            first = getattr(self, slots[0])
-            if isinstance(first, dict):
-                return first[key]
+        __getitem__ = def_fn(
+            rootit(f"""
+            def __getitem__(self, key):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    return data[key]
 
-            for slot in slots:
-                item = getattr(self, slot)
-                if item is None:
-                    break
+                {spliced(
+                    4,
+                    [f"""
+                    if {i} >= length: raise KeyError(key)
+                    item = self.{slot}
+                    if item[0] == key: return item[1]""" for i, slot in enumerate(slots)])}
 
-                if item[0] == key:
-                    return item[1]
-
-            raise KeyError(key)
+                raise KeyError(key)
+            """),
+            _mut_state=_mut_state,
+            KeyError=KeyError,
+        )
 
         def __setitem__(self, key, value):
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                data[key] = value
+                return
+
+            for slot in slots[:length]:
+                tup = getattr(self, slot)
+                if tup[0] == key:
+                    setattr(self, slot, (tup[0], value))
+                    return
+
+            if length < internal_size:
+                tup = (key, value)
+                setattr(self, slots[length], tup)
+                if length < internal_size - 1:
+                    getattr(self, slots[-1]).length = length + 1
+
             current = dict(self)
             current[key] = value
-            _assign(self, current)
+            _assign(self, current, current.items(), False)
 
         def __delitem__(self, key):
             current = dict(self)
             del current[key]
-            _assign(self, current)
+            _assign(self, current, current.items(), False)
 
         def __iter__(self):
-            yield from OptimizedCollectionMeta._mut_iter(
-                self, slots, dict, lambda d: d, None, operator.itemgetter(0)
-            )
-
-        def __len__(self):
-            return OptimizedCollectionMeta._mut_len(self, slots, dict, len, None)
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                yield from data
+                return
+            for slot in slots[:length]:
+                yield getattr(self, slot)[0]
 
         def popitem(self):
-            first = getattr(self, slots[0])
-            if isinstance(first, dict):
-                return first.popitem()
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                item = data.popitem()
+                if len(data) <= internal_size:
+                    _assign(self, data, data.items(), False)
+                return item
 
-            # Walk backward through slots to find the last non-empty slot (LIFO order)
-            for slot in reversed(slots):
-                item = getattr(self, slot)
-                if item is not None:
-                    setattr(self, slot, None)
-                    return item
+            if length == 0:
+                raise KeyError
 
-            raise KeyError
+            last = getattr(self, slots[length - 1])
+            if length == internal_size:
+                setattr(self, slots[-1], END(length - 1))
+                return last
+
+            end = getattr(self, slots[-1])
+            end.length -= 1
+            return last
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]
@@ -189,8 +213,10 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         namespace["__setitem__"] = __setitem__
         namespace["__delitem__"] = __delitem__
         namespace["__iter__"] = __iter__
-        namespace["__len__"] = __len__
+        namespace["__len__"] = _len
         namespace["__repr__"] = __repr__
 
-        # Override mixin popitem to match dict's LIFO ordering
+        # Override mixin popitem to match dict's LIFO ordering. Although it's not a requirement of
+        # a MutableMapping instance to match this, the ideal case is for this to be an exact
+        # in-place replacement for dict.
         namespace["popitem"] = popitem

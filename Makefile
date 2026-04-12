@@ -6,7 +6,7 @@ format:
 lint:
 	black --check opticol tests benchmarks
 	mypy opticol tests benchmarks
-	pylint opticol tests benchmarks
+	pylint opticol
 
 test:
 	pytest

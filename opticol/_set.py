@@ -4,13 +4,13 @@ This module implements the set-specific metaclasses that generate immutable Set 
 implementations with slot-based storage. Elements are stored directly in individual slots.
 """
 
-from itertools import zip_longest
 from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
+from opticol._codegen import def_fn, guard, rootit
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import END, Overflow
+from opticol._sentinel import END
 
 
 class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
@@ -52,25 +52,29 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, s):
-            if len(s) != internal_size:
-                raise ValueError(
-                    f"Expected provided Set to have exactly {internal_size} elements but it has "
-                    f"{len(s)}."
-                )
+        __init__ = def_fn(rootit(f"""
+            def __init__(self, s):
+                if len(s) != {internal_size}:
+                    raise ValueError(
+                        "Expected provided Set to have exactly {internal_size} elements but it has "
+                        f"{{len(s)}}."
+                    )
+                {guard(internal_size > 0, f"({",".join(f"self.{slot}" for slot in slots)},) = s")}
+            """))
 
-            for slot, v in zip(slots, s, strict=True):
-                setattr(self, slot, v)
+        __contains__ = def_fn(rootit(f"""
+            def __contains__(self, value):
+                return {guard(
+                    internal_size > 0,
+                    " or ".join(f"self.{slot} == value" for slot in slots), "False")}
+            """))
 
-        def __contains__(self, value):
-            for slot in slots:
-                if getattr(self, slot) == value:
-                    return True
-            return False
-
-        def __iter__(self):
-            for slot in slots:
-                yield getattr(self, slot)
+        __iter__ = def_fn(rootit(f"""
+            def __iter__(self):
+                yield from {guard(
+                    internal_size > 0,
+                    "(" + ", ".join(f"self.{slot}" for slot in slots) + ",)", "()")}
+            """))
 
         def __len__(_):
             return internal_size
@@ -139,54 +143,78 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
     ) -> None:
         internal_size = len(slots)
 
-        def _assign(self, s):
-            if len(s) > internal_size:
-                setattr(self, slots[0], Overflow(s))
-                for slot in slots[1:]:
-                    setattr(self, slot, END)
-            else:
-                sentinel = object()
-                for slot, v in zip_longest(slots, s, fillvalue=sentinel):
-                    if v is sentinel:
-                        setattr(self, slot, END)
-                    else:
-                        setattr(self, slot, v)
+        _assign = OptimizedCollectionMeta[MutableSet]._assign(slots, set)
+        _mut_state = OptimizedCollectionMeta[MutableSet]._mut_state(slots)
+        _len = OptimizedCollectionMeta[MutableSet]._len(slots)
 
         def __init__(self, s):
-            _assign(self, s)
+            _assign(self, s, s, True)
 
         def __contains__(self, value):
-            first = getattr(self, slots[0])
-            if isinstance(first, Overflow):
-                return value in first.data
-
-            for slot in slots:
-                v = getattr(self, slot)
-                if v is END:
-                    break
-                if v == value:
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                return value in data
+            for slot in slots[:length]:
+                if getattr(self, slot) == value:
                     return True
             return False
 
         def __iter__(self):
-            yield from OptimizedCollectionMeta._mut_iter(
-                self, slots, Overflow, lambda o: o.data, END, lambda v: v
-            )
-
-        def __len__(self):
-            return OptimizedCollectionMeta._mut_len(
-                self, slots, Overflow, lambda o: len(o.data), END
-            )
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                yield from data
+                return
+            for slot in slots[:length]:
+                yield getattr(self, slot)
 
         def add(self, value):
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                data.add(value)
+                return
+
+            for slot in slots[:length]:
+                if getattr(self, slot) == value:
+                    return
+
+            if length < internal_size:
+                setattr(self, slots[length], value)
+                if length + 1 < internal_size:
+                    getattr(self, slots[-1]).length = length + 1
+                return
+
             current = set(self)
             current.add(value)
-            _assign(self, current)
+            _assign(self, current, current, False)
 
         def discard(self, value):
-            current = set(self)
-            current.discard(value)
-            _assign(self, current)
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                data.discard(value)
+                if len(data) <= internal_size:
+                    _assign(self, data, data, False)
+                return
+
+            swap_idx = length - 1
+            to_remove_slot_idx = None
+            for i, slot in enumerate(slots[:length]):
+                if getattr(self, slot) == value:
+                    to_remove_slot_idx = i
+                    break
+
+            if to_remove_slot_idx is None:
+                return
+
+            if to_remove_slot_idx != swap_idx:
+                setattr(self, slots[to_remove_slot_idx], getattr(self, slots[swap_idx]))
+
+            if swap_idx < internal_size - 1:
+                delattr(self, slots[swap_idx])
+
+            if swap_idx == internal_size - 1:
+                setattr(self, slots[-1], END(length - 1))
+            else:
+                getattr(self, slots[-1]).length = length - 1
 
         def __repr__(self):
             if len(self) == 0:
@@ -208,7 +236,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
         namespace["__init__"] = __init__
         namespace["__contains__"] = __contains__
         namespace["__iter__"] = __iter__
-        namespace["__len__"] = __len__
+        namespace["__len__"] = _len
         namespace["add"] = add
         namespace["discard"] = discard
         namespace["__repr__"] = __repr__
