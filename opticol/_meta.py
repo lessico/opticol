@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from typing import Any, Optional
 
-from opticol._codegen import def_fn, rootit, spliced
+from opticol._codegen import def_fn, guard, rootit, spliced
 from opticol._sentinel import END, Overflow
 
 
@@ -84,40 +84,46 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
     @staticmethod
     def _assign(slots: Sequence[str], ctor: Callable[[C], C]) -> Callable[[C, C, Iterable, bool], None]:
-        internal_size = len(slots)
-        def f(self, collection, iterator, from_outside):
-            length = len(collection)
-            if length > internal_size:
-                if from_outside:
-                    collection = ctor(collection)
+        ir = rootit(f"""
+            def _assign(self, collection, iterator, from_outside):
+                length = len(collection)
+                if length > internal_size:
+                    if from_outside:
+                        collection = ctor(collection)
 
-                setattr(self, slots[0], Overflow(collection))
-                for slot in slots[1:-1]:
-                    try:
-                        delattr(self, slot)
-                    except AttributeError:
-                        break
-                if internal_size > 1:
-                    setattr(self, slots[-1], END(-1))
-            else:
-                for slot, v in zip(slots, iterator):
-                    setattr(self, slot, v)
-                for slot in slots[length:-1]:
-                    try:
-                        delattr(self, slot)
-                    except AttributeError:
-                        break
-                if length < internal_size:
-                    setattr(self, slots[-1], END(length))
-
-        return f
-
+                    self.{slots[0]} = Overflow(collection)
+                    for slot in slots[1:-1]:
+                        try:
+                            delattr(self, slot)
+                        except AttributeError:
+                            break
+                    if internal_size > 1:
+                        self.{slots[-1]} = END(-1)
+                else:
+                    for slot, v in zip(slots, iterator):
+                        setattr(self, slot, v)
+                    for slot in slots[length:-1]:
+                        try:
+                            delattr(self, slot)
+                        except AttributeError:
+                            break
+                    if length < internal_size:
+                        self.{slots[-1]} = END(length)
+            """)
+        print(ir)
+        return def_fn(ir,
+            internal_size=len(slots),
+            slots=slots,
+            ctor=ctor,
+            Overflow=Overflow,
+            END=END,
+            zip=zip,
+            AttributeError=AttributeError)
 
     @staticmethod
     def _mut_state(slots: Sequence[str]) -> Callable[[C], tuple[bool, Optional[C], int]]:
-        internal_size = len(slots)
         return def_fn(rootit(f"""
-            def f(self):
+            def _mut_state(self):
                 last = self.{slots[-1]}
                 if isinstance(last, END):
                     inline_length = last.length
@@ -130,24 +136,26 @@ class OptimizedCollectionMeta[C](ABCMeta):
                     return True, l, len(l)
                 return False, None, internal_size
             """),
-        slots=slots,
-        internal_size=internal_size,
+        internal_size=len(slots),
         END=END,
         Overflow=Overflow)
 
     @staticmethod
     def _len(slots: Sequence[str]) -> Callable[[C], int]:
-        def f(self):
-            last = getattr(self, slots[-1])
-            if isinstance(last, END):
-                inline_length = last.length
-                if inline_length < 0:
-                    l = getattr(self, slots[0]).data
+        return def_fn(rootit(f"""
+            def _len(self):
+                last = self.{slots[-1]}
+                if isinstance(last, END):
+                    inline_length = last.length
+                    if inline_length < 0:
+                        l = self.{slots[0]}.data
+                        return len(l)
+                    return inline_length
+                if isinstance(last, Overflow):
+                    l = last.data
                     return len(l)
-                return inline_length
-            if isinstance(last, Overflow):
-                l = last.data
-                return len(l)
-            return len(slots)
-
-        return f
+                return internal_size
+            """),
+            internal_size=len(slots),
+            END=END,
+            Overflow=Overflow)

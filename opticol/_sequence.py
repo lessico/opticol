@@ -8,8 +8,8 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSequence, Sequence
 
+from opticol._codegen import def_fn, rootit, spliced
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import END, Overflow
 
 
 def _adjust_index(idx: int, length: int) -> int:
@@ -66,15 +66,19 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
     ) -> None:
         internal_size = len(slots)
 
-        def __init__(self, seq):
-            if len(seq) != internal_size:
-                raise ValueError(
-                    f"Expected provided Sequence to have exactly {internal_size} elements but it "
-                    f"has {len(seq)}."
-                )
+        __init__ = def_fn(rootit(f"""
+            def __init__(self, seq):
+                if len(seq) != {internal_size}:
+                    raise ValueError(
+                        f"Expected provided Sequence to have exactly {internal_size} elements but "
+                        f"it has {{len(seq)}}."
+                    )
 
-            for slot, v in zip(slots, seq, strict=True):
-                setattr(self, slot, v)
+                {spliced(
+                    4,
+                    [f"self.{slots[i]} = seq[{i}]" for i in range(len(slots))]
+                )}
+            """))
 
         def __getitem__(self, key):
             match key:

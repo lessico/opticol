@@ -63,7 +63,7 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
 
         __getitem__ = def_fn(rootit(f"""
             def __getitem__(self, key):
-                {spliced(4, [(f"if self.{slot}[0] == key: return self.{slot}[1]",) for slot in slots])}
+                {spliced(4, [f"if self.{slot}[0] == key: return self.{slot}[1]" for slot in slots])}
                 raise KeyError(key)
             """))
 
@@ -139,9 +139,10 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
 
                 {spliced(
                     4,
-                    [(f"if {i} >= length: raise KeyError(key)",
-                      f"item = self.{slot}",
-                      "if item[0] == key: return item[1]") for i, slot in enumerate(slots)])}
+                    [f"""
+                    if {i} >= length: raise KeyError(key)
+                    item = self.{slot}
+                    if item[0] == key: return item[1]""" for i, slot in enumerate(slots)])}
 
                 raise KeyError(key)
             """),
