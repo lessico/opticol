@@ -6,8 +6,6 @@ an individual slot.
 """
 
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
-from itertools import zip_longest
-import operator
 from typing import Any, Optional
 
 from opticol._codegen import def_fn, guard, rootit, spliced
@@ -131,7 +129,8 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
         def __init__(self, mapping):
             _assign(self, mapping, mapping.items(), True)
 
-        __getitem__ = def_fn(rootit(f"""
+        __getitem__ = def_fn(
+            rootit(f"""
             def __getitem__(self, key):
                 overflowed, data, length = _mut_state(self)
                 if overflowed:
@@ -147,7 +146,8 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                 raise KeyError(key)
             """),
             _mut_state=_mut_state,
-            KeyError=KeyError)
+            KeyError=KeyError,
+        )
 
         def __setitem__(self, key, value):
             overflowed, data, length = _mut_state(self)

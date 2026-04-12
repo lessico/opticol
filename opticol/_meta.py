@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Optional
 
-from opticol._codegen import def_fn, guard, rootit, spliced
+from opticol._codegen import def_fn, rootit
 from opticol._sentinel import END, Overflow
 
 
@@ -83,8 +83,11 @@ class OptimizedCollectionMeta[C](ABCMeta):
         """
 
     @staticmethod
-    def _assign(slots: Sequence[str], ctor: Callable[[C], C]) -> Callable[[C, C, Iterable, bool], None]:
-        return def_fn(rootit(f"""
+    def _assign(
+        slots: Sequence[str], ctor: Callable[[C], C]
+    ) -> Callable[[C, C, Iterable, bool], None]:
+        return def_fn(
+            rootit(f"""
             def _assign(self, collection, iterable, from_outside):
                 length = len(collection)
                 if length > internal_size:
@@ -116,11 +119,13 @@ class OptimizedCollectionMeta[C](ABCMeta):
             Overflow=Overflow,
             END=END,
             zip=zip,
-            AttributeError=AttributeError)
+            AttributeError=AttributeError,
+        )
 
     @staticmethod
     def _mut_state(slots: Sequence[str]) -> Callable[[C], tuple[bool, Optional[C], int]]:
-        return def_fn(rootit(f"""
+        return def_fn(
+            rootit(f"""
             def _mut_state(self):
                 last = self.{slots[-1]}
                 if isinstance(last, END):
@@ -134,13 +139,15 @@ class OptimizedCollectionMeta[C](ABCMeta):
                     return True, l, len(l)
                 return False, None, internal_size
             """),
-        internal_size=len(slots),
-        END=END,
-        Overflow=Overflow)
+            internal_size=len(slots),
+            END=END,
+            Overflow=Overflow,
+        )
 
     @staticmethod
     def _len(slots: Sequence[str]) -> Callable[[C], int]:
-        return def_fn(rootit(f"""
+        return def_fn(
+            rootit(f"""
             def _len(self):
                 last = self.{slots[-1]}
                 if isinstance(last, END):
@@ -156,4 +163,5 @@ class OptimizedCollectionMeta[C](ABCMeta):
             """),
             internal_size=len(slots),
             END=END,
-            Overflow=Overflow)
+            Overflow=Overflow,
+        )

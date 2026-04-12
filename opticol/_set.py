@@ -10,7 +10,7 @@ from collections.abc import Callable, MutableSet, Sequence, Set
 
 from opticol._codegen import def_fn, guard, rootit
 from opticol._meta import OptimizedCollectionMeta
-from opticol._sentinel import END, Overflow
+from opticol._sentinel import END
 
 
 class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
@@ -215,7 +215,6 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 setattr(self, slots[-1], END(length - 1))
             else:
                 getattr(self, slots[-1]).length = length - 1
-            
 
         def __repr__(self):
             if len(self) == 0:
