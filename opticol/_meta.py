@@ -84,7 +84,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
     @staticmethod
     def _assign(slots: Sequence[str], ctor: Callable[[C], C]) -> Callable[[C, C, Iterable, bool], None]:
-        ir = rootit(f"""
+        return def_fn(rootit(f"""
             def _assign(self, collection, iterable, from_outside):
                 length = len(collection)
                 if length > internal_size:
@@ -109,9 +109,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
                             break
                     if length < internal_size:
                         self.{slots[-1]} = END(length)
-            """)
-        print(ir)
-        return def_fn(ir,
+            """),
             internal_size=len(slots),
             slots=slots,
             ctor=ctor,
