@@ -6,7 +6,7 @@ methods for mutable collection operations.
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Optional
 
 from opticol._codegen import def_fn, guard, rootit, spliced
@@ -85,7 +85,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
     @staticmethod
     def _assign(slots: Sequence[str], ctor: Callable[[C], C]) -> Callable[[C, C, Iterable, bool], None]:
         ir = rootit(f"""
-            def _assign(self, collection, iterator, from_outside):
+            def _assign(self, collection, iterable, from_outside):
                 length = len(collection)
                 if length > internal_size:
                     if from_outside:
@@ -100,7 +100,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
                     if internal_size > 1:
                         self.{slots[-1]} = END(-1)
                 else:
-                    for slot, v in zip(slots, iterator):
+                    for slot, v in zip(slots, iterable):
                         setattr(self, slot, v)
                     for slot in slots[length:-1]:
                         try:
