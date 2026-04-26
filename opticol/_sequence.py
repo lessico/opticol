@@ -66,7 +66,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
     ) -> None:
         internal_size = len(slots)
 
-        __init__ = def_fn(rootit(f"""
+        __init__ = def_fn(f"""
             def __init__(self, seq):
                 if len(seq) != {internal_size}:
                     raise ValueError(
@@ -77,8 +77,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
                 {spliced(
                     4,
                     [f"self.{slots[i]} = seq[{i}]" for i in range(len(slots))]
-                )}
-            """))
+                )}""")
 
         def __getitem__(self, key):
             match key:

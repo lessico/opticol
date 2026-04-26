@@ -47,7 +47,7 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
     ) -> None:
         internal_size = len(slots)
 
-        __init__ = def_fn(rootit(f"""
+        __init__ = def_fn(f"""
             def __init__(self, mapping):
                 if len(mapping) != {internal_size}:
                     raise ValueError(
@@ -57,20 +57,20 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
                 {guard(
                     internal_size > 0,
                     f"({",".join(f"self.{slot}" for slot in slots)},) = mapping.items()")}
-            """))
+            """)
 
-        __getitem__ = def_fn(rootit(f"""
+        __getitem__ = def_fn(f"""
             def __getitem__(self, key):
                 {spliced(4, [f"if self.{slot}[0] == key: return self.{slot}[1]" for slot in slots])}
                 raise KeyError(key)
-            """))
+            """)
 
-        __iter__ = def_fn(rootit(f"""
+        __iter__ = def_fn(f"""
             def __iter__(self):
                 yield from {guard(
                     internal_size > 0,
                     "(" + ", ".join(f"self.{slot}[0]" for slot in slots) + ",)", "()")}
-            """))
+            """)
 
         def __len__(_):
             return internal_size
