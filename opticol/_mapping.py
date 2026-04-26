@@ -130,7 +130,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
             _assign(self, mapping, mapping.items(), True)
 
         __getitem__ = def_fn(
-            rootit(f"""
+            f"""
             def __getitem__(self, key):
                 overflowed, data, length = _mut_state(self)
                 if overflowed:
@@ -143,8 +143,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                     item = self.{slot}
                     if item[0] == key: return item[1]""" for i, slot in enumerate(slots)])}
 
-                raise KeyError(key)
-            """),
+                raise KeyError(key)""",
             _mut_state=_mut_state,
             KeyError=KeyError,
         )

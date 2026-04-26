@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Optional
 
-from opticol._codegen import def_fn, rootit
+from opticol._codegen import def_fn
 from opticol._sentinel import END, Overflow
 
 
@@ -87,7 +87,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
         slots: Sequence[str], ctor: Callable[[C], C]
     ) -> Callable[[C, C, Iterable, bool], None]:
         return def_fn(
-            rootit(f"""
+            f"""
             def _assign(self, collection, iterable, from_outside):
                 length = len(collection)
                 if length > internal_size:
@@ -111,8 +111,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
                         except AttributeError:
                             break
                     if length < internal_size:
-                        self.{slots[-1]} = END(length)
-            """),
+                        self.{slots[-1]} = END(length)""",
             internal_size=len(slots),
             slots=slots,
             ctor=ctor,
@@ -124,7 +123,8 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
     @staticmethod
     def _mut_state(slots: Sequence[str]) -> Callable[[C], tuple[bool, Optional[C], int]]:
-        return def_fn(f"""
+        return def_fn(
+            f"""
             def _mut_state(self):
                 last = self.{slots[-1]}
                 if isinstance(last, END):
@@ -144,7 +144,8 @@ class OptimizedCollectionMeta[C](ABCMeta):
 
     @staticmethod
     def _len(slots: Sequence[str]) -> Callable[[C], int]:
-        return def_fn(f"""
+        return def_fn(
+            f"""
             def _len(self):
                 last = self.{slots[-1]}
                 if isinstance(last, END):

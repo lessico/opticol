@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
-from opticol._codegen import def_fn, guard, rootit
+from opticol._codegen import def_fn, guard
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END
 
@@ -52,7 +52,7 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
     ) -> None:
         internal_size = len(slots)
 
-        __init__ = def_fn(rootit(f"""
+        __init__ = def_fn(f"""
             def __init__(self, s):
                 if len(s) != {internal_size}:
                     raise ValueError(
@@ -60,21 +60,21 @@ class OptimizedSetMeta(OptimizedCollectionMeta[Set]):
                         f"{{len(s)}}."
                     )
                 {guard(internal_size > 0, f"({",".join(f"self.{slot}" for slot in slots)},) = s")}
-            """))
+            """)
 
-        __contains__ = def_fn(rootit(f"""
+        __contains__ = def_fn(f"""
             def __contains__(self, value):
                 return {guard(
                     internal_size > 0,
                     " or ".join(f"self.{slot} == value" for slot in slots), "False")}
-            """))
+            """)
 
-        __iter__ = def_fn(rootit(f"""
+        __iter__ = def_fn(f"""
             def __iter__(self):
                 yield from {guard(
                     internal_size > 0,
                     "(" + ", ".join(f"self.{slot}" for slot in slots) + ",)", "()")}
-            """))
+            """)
 
         def __len__(_):
             return internal_size

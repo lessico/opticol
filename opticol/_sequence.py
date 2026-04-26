@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSequence, Sequence
 
-from opticol._codegen import def_fn, rootit, spliced
+from opticol._codegen import def_fn, spliced
 from opticol._meta import OptimizedCollectionMeta
 
 
