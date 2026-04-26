@@ -233,9 +233,34 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     )
 
         def insert(self, index, value):
-            current = list(self)
-            current.insert(index, value)
-            _assign(self, current, current, False)
+            overflowed, overflow_data, length = _mut_state(self)
+            if overflowed:
+                overflow_data.insert(index, value)
+                return
+
+            if length == internal_size:
+                current = list(self)
+                current.insert(index, value)
+                _assign(self, current, current, False)
+                return
+
+            if index >= length:
+                setattr(self, slots[length], value)
+            else:
+                # This behavior matches the python default behavior for wrapping indices on insert,
+                # which are different from normal sequence indexing.
+                if index < -length:
+                    adjusted = 0
+                else:
+                    adjusted = _adjust_index(index, length)
+
+                for i, slot in enumerate(slots[adjusted + 1 : length + 1], adjusted + 1):
+                    prev_slot = getattr(self, slots[i - 1])
+                    setattr(self, slot, prev_slot)
+                setattr(self, slots[adjusted], value)
+
+            if length < internal_size - 1:
+                getattr(self, slots[internal_size - 1]).length = length + 1
 
         def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"
