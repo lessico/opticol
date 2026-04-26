@@ -254,9 +254,9 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                 else:
                     adjusted = _adjust_index(index, length)
 
-                for i, slot in enumerate(slots[adjusted + 1 : length + 1], adjusted + 1):
+                for i in range(length, adjusted, -1):
                     prev_slot = getattr(self, slots[i - 1])
-                    setattr(self, slot, prev_slot)
+                    setattr(self, slots[i], prev_slot)
                 setattr(self, slots[adjusted], value)
 
             if length < internal_size - 1:

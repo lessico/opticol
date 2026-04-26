@@ -389,3 +389,186 @@ def test_mut_seq_underflow():
     # internal_size > len(seed), elements fit in slots with room to spare
     harness([1, 2], [len, getitem(0), getitem(1), append(3), len], internal_sizes=[3, 4, 5])
     harness([1], [insert(0, 0), insert(2, 2), len, getitem(slice(None))], internal_sizes=[3, 4, 5])
+
+
+def test_mut_seq_insert_index_clamping():
+    """Test that insert clamps out-of-bounds indices like Python's list, unlike getitem."""
+    # Far-negative index clamps to 0 (getitem would raise IndexError for the same index)
+    harness([1, 2, 3], [insert(-100, 0), len, getitem(slice(None))])
+
+    # Exactly -length clamps to 0 (boundary between valid negative and clamped)
+    harness([1, 2, 3], [insert(-3, 0), len, getitem(slice(None))])
+
+    # -2 on [1,2,3] is valid (position 1), not clamped
+    harness([1, 2, 3], [insert(-2, 0), len, getitem(slice(None))])
+
+    # Far-positive index clamps to length (same as append)
+    harness([1, 2, 3], [insert(1000, 0), len, getitem(-1)])
+
+    # Clamping in overflow mode — Python's list.insert also clamps when overflowed
+    harness(
+        [1, 2, 3, 4, 5],
+        [insert(-100, 0), len, getitem(slice(None))],
+        internal_sizes=[2, 3],
+    )
+    harness(
+        [1, 2, 3, 4, 5],
+        [insert(1000, 0), len, getitem(slice(None))],
+        internal_sizes=[2, 3],
+    )
+
+
+def test_mut_seq_insert_fills_to_capacity():
+    """Test inserting into a sequence that is exactly one element short of slot capacity."""
+    # Append-style insert fills the last free slot
+    harness([1, 2], [insert(2, 3), len, getitem(slice(None))], internal_sizes=[3])
+
+    # Insert at front fills last slot via shift
+    harness([1, 2], [insert(0, 0), len, getitem(slice(None))], internal_sizes=[3])
+
+    # Insert at negative index fills last slot via shift
+    harness([1, 2], [insert(-1, 99), len, getitem(slice(None))], internal_sizes=[3])
+
+    # Fill to capacity then insert once more triggers overflow
+    harness(
+        [1, 2],
+        [insert(2, 3), insert(3, 4), len, getitem(slice(None))],
+        internal_sizes=[3],
+    )
+
+    # Verify state is correct after filling to capacity (getitem, setitem, delitem all work)
+    harness(
+        [1, 2],
+        [insert(1, 99), getitem(0), getitem(1), getitem(2), delitem(1), len, getitem(slice(None))],
+        internal_sizes=[3],
+    )
+
+
+def test_mut_seq_insert_minimum_size():
+    """Test insert edge cases for internal_size=1 (minimum supported slot count)."""
+    # Insert into empty size-1 sequence fills the only slot
+    harness([], [insert(0, 1), len, getitem(0)], internal_sizes=[1])
+
+    # Second insert into full size-1 sequence must overflow
+    harness([1], [insert(0, 0), len, getitem(slice(None))], internal_sizes=[1])
+    harness([1], [insert(1, 2), len, getitem(slice(None))], internal_sizes=[1])
+
+    # Far-negative index on size-1 full sequence (overflowed) — clamping still applies
+    harness([1], [insert(-100, 0), len, getitem(slice(None))], internal_sizes=[1])
+
+
+def test_mut_seq_delitem_single_element():
+    """Test __delitem__ on single-element sequences, including underflow variants."""
+    # Exact-fit single-element sequence
+    harness([1], [delitem(0), len])
+    harness([1], [delitem(-1), len])
+
+    # Single element in underflow sequence (internal_size > 1)
+    harness([1], [delitem(0), len], internal_sizes=[3])
+    harness([1], [delitem(-1), len], internal_sizes=[3])
+
+    # Delete the one element then re-insert — ensures state is clean
+    harness([1], [delitem(0), append(99), len, getitem(0)])
+    harness([1], [delitem(0), append(99), len, getitem(0)], internal_sizes=[3])
+
+
+def test_mut_seq_delitem_noop_slices():
+    """Test that no-op slice deletions match Python's list: empty range, out-of-range, reversed."""
+    # Empty slice (start == stop) deletes nothing
+    harness([1, 2, 3], [delitem(slice(1, 1)), len, getitem(slice(None))])
+    harness([1, 2, 3], [delitem(slice(0, 0)), len, getitem(slice(None))])
+
+    # Slice entirely beyond the end deletes nothing
+    harness([1, 2, 3], [delitem(slice(10, 20)), len, getitem(slice(None))])
+
+    # Reversed slice with positive step is a no-op (start > stop)
+    harness([1, 2, 3], [delitem(slice(3, 0)), len, getitem(slice(None))])
+    harness([1, 2, 3], [delitem(slice(2, 1)), len, getitem(slice(None))])
+
+    # Large negative start, large positive stop removes everything
+    harness([1, 2, 3], [delitem(slice(-1000, 1000)), len])
+
+    # No-op slices in overflow mode
+    harness(
+        [1, 2, 3, 4, 5],
+        [delitem(slice(10, 20)), len, getitem(slice(None))],
+        internal_sizes=[2, 3],
+    )
+
+
+def test_mut_seq_delitem_underflow():
+    """Test __delitem__ when the sequence uses fewer slots than internal_size allows."""
+    harness([1, 2], [delitem(0), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2], [delitem(-1), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2], [delitem(1), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2], [delitem(slice(0, 1)), len, getitem(slice(None))], internal_sizes=[4])
+
+    # Delete both elements one by one
+    harness([1, 2], [delitem(0), delitem(0), len], internal_sizes=[4])
+
+    # Out-of-bounds delete in underflow raises IndexError
+    harness([1, 2], [delitem(5)], internal_sizes=[4])
+    harness([1, 2], [delitem(-5)], internal_sizes=[4])
+
+
+def test_mut_seq_mixin_clear_relies_on_pop():
+    """Test clear(), which calls pop() until IndexError, across all slot/overflow states."""
+    # Clear from underflow (pop must succeed internal_size - length times then raise IndexError)
+    harness([1], [clear(), len, append(99), len], internal_sizes=[3])
+    harness([1, 2], [clear(), len], internal_sizes=[4])
+
+    # Clear after growing into overflow: pop traverses overflow → recovery → empty
+    harness(
+        [1, 2],
+        [append(3), append(4), clear(), len, append(0), len, getitem(0)],
+        internal_sizes=[3],
+    )
+
+    # Clear after overflow recovery: pop from overflow until recovery, then continue to empty
+    harness(
+        [1, 2, 3, 4, 5],
+        [pop(), pop(), pop(), clear(), len],
+        internal_sizes=[3],
+    )
+
+    # Verify sequence is fully usable after clear
+    harness(
+        [1, 2, 3],
+        [clear(), len, insert(0, 42), len, getitem(0)],
+        internal_sizes=[3, 5],
+    )
+
+
+def test_mut_seq_mixin_pop_to_empty():
+    """Test pop() called repeatedly until IndexError, exercising __delitem__ at every size."""
+    # Pop last element until empty (each pop calls __delitem__)
+    harness([1], [pop(), pop()])
+    harness([1, 2], [pop(), pop(), pop()])
+    harness([1, 2, 3], [pop(), pop(), pop(), pop()])
+
+    # Pop first element until empty
+    harness([1, 2, 3], [pop(0), pop(0), pop(0), pop(0)])
+
+    # Pop middle-ish with underflow sequence
+    harness([1, 2, 3], [pop(1), pop(1), pop(1), pop()], internal_sizes=[5])
+
+    # Pop until empty from overflow, verifying recovery and then exhaustion
+    harness(
+        [1, 2, 3, 4, 5],
+        [pop(), pop(), pop(), pop(), pop(), pop()],
+        internal_sizes=[2, 3],
+    )
+
+
+def test_mut_seq_mixin_remove_relies_on_delitem():
+    """Test remove(), which calls index() then __delitem__, through insert/delete interactions."""
+    # Remove an element that was just inserted
+    harness([1, 2, 3], [insert(0, 0), remove(0), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3], [insert(1, 99), remove(99), len, getitem(slice(None))], internal_sizes=[4])
+
+    # Remove in underflow scenario
+    harness([1, 2], [remove(1), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2], [remove(2), len, getitem(slice(None))], internal_sizes=[4])
+
+    # Remove until single element left, then pop
+    harness([1, 2, 3], [remove(1), remove(2), pop(), pop()])
