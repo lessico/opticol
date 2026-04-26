@@ -10,6 +10,7 @@ from collections.abc import Callable, MutableSequence, Sequence
 
 from opticol._codegen import def_fn, spliced
 from opticol._meta import OptimizedCollectionMeta
+from opticol._sentinel import END
 
 
 def _adjust_index(idx: int, length: int) -> int:
@@ -203,9 +204,33 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     )
 
         def __delitem__(self, key):
-            current = list(self)
-            del current[key]
-            _assign(self, current, current, False)
+            overflowed, overflow_data, length = _mut_state(self)
+            if overflowed:
+                del overflow_data[key]
+                if len(overflow_data) <= internal_size:
+                    _assign(self, overflow_data, overflow_data, False)
+                return
+
+            match key:
+                case int():
+                    adjusted = _adjust_index(key, length)
+                    for i, slot in enumerate(slots[adjusted : length - 1], adjusted):
+                        next_slot = getattr(self, slots[i + 1])
+                        setattr(self, slot, next_slot)
+
+                    if length == internal_size:
+                        setattr(self, slots[length - 1], END(length - 1))
+                    else:
+                        delattr(self, slots[length - 1])
+                        getattr(self, slots[internal_size - 1]).length = length - 1
+                case slice():
+                    current = list(self)
+                    del current[key]
+                    _assign(self, current, current, False)
+                case _:
+                    raise TypeError(
+                        f"Sequence accessors must be integers or slices, not {type(key)}"
+                    )
 
         def insert(self, index, value):
             current = list(self)

@@ -8,7 +8,7 @@ an individual slot.
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from typing import Any, Optional
 
-from opticol._codegen import def_fn, guard, rootit, spliced
+from opticol._codegen import def_fn, guard, spliced
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END
 
