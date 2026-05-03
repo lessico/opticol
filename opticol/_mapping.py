@@ -171,9 +171,34 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
             _assign(self, current, current.items(), False)
 
         def __delitem__(self, key):
-            current = dict(self)
-            del current[key]
-            _assign(self, current, current.items(), False)
+            # If the mapping is in an overflowed representation then call the normal dict logic and
+            # check if the number of elements can be assigned back to slot based representation.
+            overflowed, data, length = _mut_state(self)
+            if overflowed:
+                del data[key]
+                if length - 1 <= internal_size:
+                    _assign(self, data, data.items(), False)
+                return
+
+            # Otherwise, try to find the location of the key.
+            to_remove_idx = -1
+            for i, slot in enumerate(slots[:length]):
+                tup = getattr(self, slot)
+                if tup[0] == key:
+                    to_remove_idx = i
+                    break
+
+            if to_remove_idx < 0:
+                raise KeyError(key)
+
+            if to_remove_idx != length - 1:
+                setattr(self, slots[to_remove_idx], getattr(self, slots[length - 1]))
+
+            if length == internal_size:
+                setattr(self, slots[-1], END(length - 1))
+            else:
+                delattr(self, slots[length - 1])
+                getattr(self, slots[-1]).length = length - 1
 
         def __iter__(self):
             overflowed, data, length = _mut_state(self)
