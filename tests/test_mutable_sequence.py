@@ -1,4 +1,10 @@
-"""Test the memory optimized MutableSequence implementation for equivalence with builtins."""
+"""
+Test mutable MutableSequence APIs for equivalence with list.
+
+Tests in this module exercise only mutation operations (__setitem__, __delitem__, insert, and
+the mixin methods built on top of them). Read-only API coverage lives in test_sequence.py,
+which runs those tests against both Sequence and MutableSequence implementations.
+"""
 
 from collections.abc import Callable, MutableSequence
 from typing import Any
@@ -7,9 +13,6 @@ from opticol.factory import create_mut_seq_class
 from tests import sequence, shared
 from tests.sequence import (
     getitem,
-    contains,
-    index,
-    count,
     setitem,
     delitem,
     insert,
@@ -48,36 +51,6 @@ def harness[T](
         create_mut_seq_class(size) for size in sizes
     ]
     shared.harness(seed, factories, ops, sequence.eq, sequence.eq_op_result)
-
-
-def test_mut_seq_len():
-    """Test that optimized mutable sequences have the same len semantics as list."""
-    harness([], [len])
-    harness([1], [len])
-    harness([1, 2], [len])
-    harness([1, 2, 3], [len])
-
-
-def test_mut_seq_getitem_indices():
-    """Test that optimized mutable sequences handle getitem with single indices correctly."""
-    harness(
-        [4, 5, 6],
-        [getitem(-1), getitem(0), getitem(1), getitem(2), getitem(3), getitem(-2), getitem(-3)],
-    )
-
-
-def test_mut_seq_getitem_slices():
-    """Test that optimized mutable sequences handle getitem with slices correctly."""
-    harness(
-        [1, 2, 3, 4, 5],
-        [
-            getitem(slice(None)),
-            getitem(slice(1, 3)),
-            getitem(slice(None, None, -1)),
-            getitem(slice(0, 5, 2)),
-            getitem(slice(-1000, 1000)),
-        ],
-    )
 
 
 def test_mut_seq_setitem_indices():
@@ -125,41 +98,6 @@ def test_mut_seq_insert():
 
     # Insert into empty
     harness([], [insert(0, 100), len, getitem(0)])
-
-
-def test_mut_seq_contains():
-    """Test that optimized mutable sequences have the same contains semantics as list."""
-    harness([1, 2, 3], [contains(1), contains(2), contains(3), contains(4, False)])
-    harness([], [contains(0, False), contains(None, False)])
-    harness([None], [contains(None)])
-
-
-def test_mut_seq_iter():
-    """Test that optimized mutable sequences have the same iter semantics as list."""
-    harness([], [iter])
-    harness([1], [iter])
-    harness([1, 2, 3], [iter])
-
-
-def test_mut_seq_reversed():
-    """Test that optimized mutable sequences have the same reversed semantics as list."""
-    harness([], [reversed])
-    harness([1], [reversed])
-    harness([1, 2, 3], [reversed])
-
-
-def test_mut_seq_index():
-    """Test that optimized mutable sequences have the same index semantics as list."""
-    harness([], [index(0)])
-    harness([10, 20, 30], [index(10), index(20), index(30), index(40)])
-    harness([1, 2, 1, 2], [index(1), index(1, 1), index(2, 2)])
-
-
-def test_mut_seq_count():
-    """Test that optimized mutable sequences have the same count semantics as list."""
-    harness([], [count(1)])
-    harness([1, 1, 2, 1], [count(1), count(2), count(3)])
-    harness([None, None], [count(None)])
 
 
 # Tests for MutableSequence mixin methods: append, clear, reverse, extend, pop, remove, __iadd__
