@@ -8,7 +8,7 @@ an individual slot.
 from collections.abc import Callable, Mapping, MutableMapping, Sequence
 from typing import Any, Optional
 
-from opticol._codegen import def_fn, guard, rootit, spliced
+from opticol._codegen import def_fn, guard, multisplice, splice
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END
 
@@ -47,7 +47,7 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
     ) -> None:
         internal_size = len(slots)
 
-        __init__ = def_fn(rootit(f"""
+        __init__ = def_fn(f"""
             def __init__(self, mapping):
                 if len(mapping) != {internal_size}:
                     raise ValueError(
@@ -57,20 +57,20 @@ class OptimizedMappingMeta(OptimizedCollectionMeta[Mapping]):
                 {guard(
                     internal_size > 0,
                     f"({",".join(f"self.{slot}" for slot in slots)},) = mapping.items()")}
-            """))
+            """)
 
-        __getitem__ = def_fn(rootit(f"""
+        __getitem__ = def_fn(f"""
             def __getitem__(self, key):
-                {spliced(4, [f"if self.{slot}[0] == key: return self.{slot}[1]" for slot in slots])}
+                {splice(4, [f"if self.{slot}[0] == key: return self.{slot}[1]" for slot in slots])}
                 raise KeyError(key)
-            """))
+            """)
 
-        __iter__ = def_fn(rootit(f"""
+        __iter__ = def_fn(f"""
             def __iter__(self):
                 yield from {guard(
                     internal_size > 0,
                     "(" + ", ".join(f"self.{slot}[0]" for slot in slots) + ",)", "()")}
-            """))
+            """)
 
         def __len__(_):
             return internal_size
@@ -130,79 +130,141 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
             _assign(self, mapping, mapping.items(), True)
 
         __getitem__ = def_fn(
-            rootit(f"""
+            f"""
             def __getitem__(self, key):
                 overflowed, data, length = _mut_state(self)
                 if overflowed:
                     return data[key]
 
-                {spliced(
-                    4,
-                    [f"""
-                    if {i} >= length: raise KeyError(key)
-                    item = self.{slot}
-                    if item[0] == key: return item[1]""" for i, slot in enumerate(slots)])}
+                {multisplice(4, [
+                    [
+                        f"if {i} >= length: raise KeyError(key)",
+                        f"item = self.{slot}",
+                        f"if item[0] == key: return item[1]",
+                    ]
+                    for i, slot in enumerate(slots)
+                ])}
 
-                raise KeyError(key)
-            """),
+                raise KeyError(key)""",
             _mut_state=_mut_state,
             KeyError=KeyError,
         )
 
-        def __setitem__(self, key, value):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                data[key] = value
-                return
-
-            for slot in slots[:length]:
-                tup = getattr(self, slot)
-                if tup[0] == key:
-                    setattr(self, slot, (tup[0], value))
+        __setitem__ = def_fn(
+            f"""
+            def __setitem__(self, key, value):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    data[key] = value
                     return
 
-            if length < internal_size:
-                tup = (key, value)
-                setattr(self, slots[length], tup)
-                if length < internal_size - 1:
-                    getattr(self, slots[-1]).length = length + 1
+                {multisplice(4, [
+                    [
+                        f"if {i} < length and self.{slots[i]}[0] == key:",
+                        f"    self.{slots[i]} = (key, value)",
+                        "    return",
+                    ]
+                    for i in range(internal_size)
+                ])}
 
-            current = dict(self)
-            current[key] = value
-            _assign(self, current, current.items(), False)
+                if length < internal_size:
+                    setattr(self, slots[length], (key, value))
+                    if length + 1 < internal_size:
+                        self.{slots[-1]}.length += 1
+                    return
 
-        def __delitem__(self, key):
-            current = dict(self)
-            del current[key]
-            _assign(self, current, current.items(), False)
+                current = dict(self)
+                current[key] = value
+                _assign(self, current, current.items(), False)
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            _assign=_assign,
+        )
 
-        def __iter__(self):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                yield from data
-                return
-            for slot in slots[:length]:
-                yield getattr(self, slot)[0]
+        __delitem__ = def_fn(
+            f"""
+            def __delitem__(self, key):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    del data[key]
+                    if length - 1 <= internal_size:
+                        _assign(self, data, data.items(), False)
+                    return
 
-        def popitem(self):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                item = data.popitem()
-                if len(data) <= internal_size:
-                    _assign(self, data, data.items(), False)
-                return item
+                swap_idx = length - 1
+                to_remove_slot_idx = None
+                {splice(4, [f"if {i} < length and self.{slots[i]}[0] == key: to_remove_slot_idx = {i}" for i in range(internal_size)])}
 
-            if length == 0:
-                raise KeyError
+                if to_remove_slot_idx is None:
+                    raise KeyError(key)
 
-            last = getattr(self, slots[length - 1])
-            if length == internal_size:
-                setattr(self, slots[-1], END(length - 1))
+                if to_remove_slot_idx != swap_idx:
+                    setattr(self, slots[to_remove_slot_idx], getattr(self, slots[swap_idx]))
+
+                if swap_idx < internal_size - 1:
+                    delattr(self, slots[swap_idx])
+
+                if swap_idx == internal_size - 1:
+                    self.{slots[-1]} = END(length - 1)
+                else:
+                    self.{slots[-1]}.length -= 1
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            _assign=_assign,
+            END=END,
+            KeyError=KeyError,
+        )
+
+        __iter__ = def_fn(
+            f"""
+            def __iter__(self):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    yield from data
+                    return
+                {multisplice(4, [
+                    [
+                        f"if length == {i}: return",
+                        f"yield self.{slots[i]}[0]",
+                    ]
+                    for i in range(internal_size)
+                ])}
+            """,
+            _mut_state=_mut_state,
+        )
+
+        popitem = def_fn(
+            f"""
+            def popitem(self):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    item = data.popitem()
+                    if len(data) <= internal_size:
+                        _assign(self, data, data.items(), False)
+                    return item
+
+                if length == 0:
+                    raise KeyError
+
+                last = getattr(self, slots[length - 1])
+                if length == internal_size:
+                    self.{slots[-1]} = END(length - 1)
+                else:
+                    delattr(self, slots[length - 1])
+                    self.{slots[-1]}.length -= 1
                 return last
-
-            end = getattr(self, slots[-1])
-            end.length -= 1
-            return last
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            _assign=_assign,
+            END=END,
+            KeyError=KeyError,
+        )
 
         def __repr__(self):
             items = [f"{repr(k)}: {repr(v)}" for k, v in self.items()]

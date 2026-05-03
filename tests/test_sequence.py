@@ -1,9 +1,16 @@
-"""Test the memory optimized Sequence implementation for equivalence with builtins."""
+"""
+Test read-only Sequence APIs for equivalence with builtins.
+
+Tests in this module exercise only read-only operations (__getitem__, __len__, __contains__,
+__iter__, __reversed__, index, count). They run against both the immutable Sequence and the
+mutable MutableSequence implementations, since a MutableSequence must also satisfy the full
+Sequence interface.
+"""
 
 from collections.abc import Callable, Sequence
 from typing import Any
 
-from opticol.factory import create_seq_class
+from opticol.factory import create_mut_seq_class, create_seq_class
 from tests import sequence, shared
 from tests.sequence import getitem, contains, index, count
 
@@ -23,7 +30,12 @@ def harness[T](
         ops: The operations whose behavior needs to be validated across builtins and optimized
             variants.
     """
-    factories: Sequence[shared.Factory[Sequence]] = [list, tuple, create_seq_class(len(seed))]
+    factories: Sequence[shared.Factory[Sequence]] = [
+        list,
+        tuple,
+        create_seq_class(len(seed)),
+        create_mut_seq_class(len(seed)),
+    ]
     shared.harness(seed, factories, ops, sequence.eq, sequence.eq_op_result)
 
 

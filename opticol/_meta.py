@@ -9,7 +9,7 @@ from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Iterable, Sequence
 from typing import Any, Optional
 
-from opticol._codegen import def_fn, rootit
+from opticol._codegen import def_fn
 from opticol._sentinel import END, Overflow
 
 
@@ -87,7 +87,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
         slots: Sequence[str], ctor: Callable[[C], C]
     ) -> Callable[[C, C, Iterable, bool], None]:
         return def_fn(
-            rootit(f"""
+            f"""
             def _assign(self, collection, iterable, from_outside):
                 length = len(collection)
                 if length > internal_size:
@@ -111,8 +111,7 @@ class OptimizedCollectionMeta[C](ABCMeta):
                         except AttributeError:
                             break
                     if length < internal_size:
-                        self.{slots[-1]} = END(length)
-            """),
+                        self.{slots[-1]} = END(length)""",
             internal_size=len(slots),
             slots=slots,
             ctor=ctor,
@@ -125,20 +124,19 @@ class OptimizedCollectionMeta[C](ABCMeta):
     @staticmethod
     def _mut_state(slots: Sequence[str]) -> Callable[[C], tuple[bool, Optional[C], int]]:
         return def_fn(
-            rootit(f"""
+            f"""
             def _mut_state(self):
                 last = self.{slots[-1]}
-                if isinstance(last, END):
+                if type(last) is END:
                     inline_length = last.length
                     if inline_length < 0:
                         l = self.{slots[0]}.data
                         return True, l, len(l)
                     return False, None, inline_length
-                if isinstance(last, Overflow):
+                if type(last) is Overflow:
                     l = last.data
                     return True, l, len(l)
-                return False, None, internal_size
-            """),
+                return False, None, internal_size""",
             internal_size=len(slots),
             END=END,
             Overflow=Overflow,
@@ -147,20 +145,19 @@ class OptimizedCollectionMeta[C](ABCMeta):
     @staticmethod
     def _len(slots: Sequence[str]) -> Callable[[C], int]:
         return def_fn(
-            rootit(f"""
+            f"""
             def _len(self):
                 last = self.{slots[-1]}
-                if isinstance(last, END):
+                if type(last) is END:
                     inline_length = last.length
                     if inline_length < 0:
                         l = self.{slots[0]}.data
                         return len(l)
                     return inline_length
-                if isinstance(last, Overflow):
+                if type(last) is Overflow:
                     l = last.data
                     return len(l)
-                return internal_size
-            """),
+                return internal_size""",
             internal_size=len(slots),
             END=END,
             Overflow=Overflow,

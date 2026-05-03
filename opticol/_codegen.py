@@ -10,6 +10,9 @@ def def_fn(code: str, **kwargs) -> Any:
     """
     Easily define a function dynamically using a string at runtime.
 
+    The code string that is given is passed through rootit so that it is automatically rooted and
+    does not have to be at the root identation level on the call itself.
+
     Args:
         code: The code that defines the function and will be dynamically executed.
         kwargs: The items to add to the namespace the function will be defined in.
@@ -20,9 +23,11 @@ def def_fn(code: str, **kwargs) -> Any:
     Raises:
         A runtime error if not exactly 1 object was added to this namespace.
     """
+    rooted = rootit(code)
+
     original_keys = set(kwargs.keys())
     ns: dict[str, Any] = kwargs
-    exec(code, ns)
+    exec(rooted, ns)
     current_keys = set(kwargs.keys())
     defined = current_keys - original_keys - {"__builtins__"}
 
@@ -39,9 +44,15 @@ def guard(flag: bool, code: str, other: str = "") -> str:
     return other
 
 
-def spliced(level: int, strs: Sequence[str]) -> str:
+def splice(level: int, strs: Sequence[str]) -> str:
     sep = "\n" + ("    " * level)
     ls = [l for s in strs for l in rootit(s).splitlines()]
+    return sep.join(ls)
+
+
+def multisplice(level: int, seqs: Sequence[Sequence[str]]) -> str:
+    sep = "\n" + ("    " * level)
+    ls = [line for seq in seqs for line in seq]
     return sep.join(ls)
 
 

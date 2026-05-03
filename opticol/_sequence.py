@@ -8,27 +8,17 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSequence, Sequence
 
-from opticol._codegen import def_fn, rootit, spliced
+from opticol._codegen import def_fn, guard, rootit, splice
 from opticol._meta import OptimizedCollectionMeta
+from opticol._sentinel import END
 
 
-def _adjust_index(idx: int, length: int) -> int:
-    """Normalize a potentially negative index to a positive offset.
-
-    Args:
-        idx: The index to normalize (may be negative for reverse indexing).
-        length: The length of the sequence being indexed into.
-
-    Returns:
-        The normalized positive index.
-
-    Raises:
-        IndexError: If the adjusted index is out of bounds.
-    """
-    adjusted = idx if idx >= 0 else length + idx
-    if adjusted < 0 or adjusted >= length:
-        raise IndexError(f"{adjusted} is outside of the expected bounds.")
-    return adjusted
+def _adjust_index_snippet(idx_var: str, length_var: str, result_var: str) -> str:
+    return rootit(f"""
+        {result_var} = {idx_var} if {idx_var} >= 0 else {length_var} + {idx_var}
+        if {result_var} < 0 or {result_var} >= {length_var}:
+            raise IndexError(f"{{{result_var}}} is outside of the expected bounds.")
+        """)
 
 
 class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
@@ -66,7 +56,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
     ) -> None:
         internal_size = len(slots)
 
-        __init__ = def_fn(rootit(f"""
+        __init__ = def_fn(f"""
             def __init__(self, seq):
                 if len(seq) != {internal_size}:
                     raise ValueError(
@@ -74,11 +64,10 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
                         f"it has {{len(seq)}}."
                     )
 
-                {spliced(
+                {splice(
                     4,
                     [f"self.{slots[i]} = seq[{i}]" for i in range(len(slots))]
-                )}
-            """))
+                )}""")
 
         def __getitem__(self, key):
             match key:
@@ -151,67 +140,150 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
         def __init__(self, seq):
             _assign(self, seq, seq, True)
 
-        def __getitem__(self, key):
-            overflowed, overflow_data, length = _mut_state(self)
+        __getitem__ = def_fn(
+            f"""
+            def __getitem__(self, key):
+                overflowed, overflow_data, length = _mut_state(self)
 
-            match key:
-                case int():
-                    if overflowed:
-                        return overflow_data[key]
+                match key:
+                    case int():
+                        if overflowed:
+                            return overflow_data[key]
 
-                    adjusted = _adjust_index(key, length)
-                    return getattr(self, slots[adjusted])
-                case slice():
-                    if overflowed:
-                        base = overflow_data[key]
+                        {splice(6, [_adjust_index_snippet("key", "length", "adjusted")])}
+                        return getattr(self, slots[adjusted])
+                    case slice():
+                        if overflowed:
+                            base = overflow_data[key]
+                        else:
+                            indices = range(*key.indices(length))
+                            base = [getattr(self, slots[i]) for i in indices]
+
+                        if project is None:
+                            return base
+
+                        return project(base)
+                    case _:
+                        raise TypeError(
+                            f"Sequence accessors must be integers or slices, not {{type(key)}}"
+                        )
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            project=project,
+            IndexError=IndexError,
+        )
+
+        __setitem__ = def_fn(
+            f"""
+            def __setitem__(self, key, value):
+                overflowed, overflow_data, length = _mut_state(self)
+
+                match key:
+                    case int():
+                        if overflowed:
+                            overflow_data[key] = value
+                            return
+
+                        {splice(6, [_adjust_index_snippet("key", "length", "adjusted")])}
+                        setattr(self, slots[adjusted], value)
+                    case slice():
+                        if overflowed:
+                            overflow_data[key] = value
+                            if length <= internal_size:
+                                _assign(self, overflow_data, overflow_data, False)
+                            return
+
+                        current = list(self)
+                        current[key] = value
+                        _assign(self, current, current, False)
+                    case _:
+                        raise TypeError(
+                            f"Sequence accessors must be integers or slices, not {{type(key)}}"
+                        )
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            _assign=_assign,
+            IndexError=IndexError,
+        )
+
+        __delitem__ = def_fn(
+            f"""
+            def __delitem__(self, key):
+                overflowed, overflow_data, length = _mut_state(self)
+                if overflowed:
+                    del overflow_data[key]
+                    if len(overflow_data) <= internal_size:
+                        _assign(self, overflow_data, overflow_data, False)
+                    return
+
+                if isinstance(key, int):
+                    {splice(5, [_adjust_index_snippet("key", "length", "adjusted")])}
+                    {guard(internal_size > 1, splice(5, [
+                        f"if {i} >= adjusted and {i} < length - 1: self.{slots[i]} = self.{slots[i + 1]}"
+                        for i in range(internal_size - 1)
+                    ]))}
+
+                    if length == internal_size:
+                        self.{slots[-1]} = END(length - 1)
                     else:
-                        indices = range(*key.indices(length))
-                        base = [getattr(self, slots[i]) for i in indices]
-
-                    if project is None:
-                        return base
-
-                    return project(base)
-                case _:
-                    raise TypeError(
-                        f"Sequence accessors must be integers or slices, not {type(key)}"
-                    )
-
-        def __setitem__(self, key, value):
-            overflowed, overflow_data, length = _mut_state(self)
-
-            match key:
-                case int():
-                    if overflowed:
-                        overflow_data[key] = value
-                        return
-
-                    adjusted = _adjust_index(key, length)
-                    setattr(self, slots[adjusted], value)
-                case slice():
-                    if overflowed:
-                        overflow_data[key] = value
-                        if length <= internal_size:
-                            _assign(self, overflow_data, overflow_data, False)
-                        return
-
+                        delattr(self, slots[length - 1])
+                        self.{slots[-1]}.length -= 1
+                elif isinstance(key, slice):
                     current = list(self)
-                    current[key] = value
+                    del current[key]
                     _assign(self, current, current, False)
-                case _:
+                else:
                     raise TypeError(
-                        f"Sequence accessors must be integers or slices, not {type(key)}"
+                        f"Sequence accessors must be integers or slices, not {{type(key)}}"
                     )
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            _assign=_assign,
+            END=END,
+            IndexError=IndexError,
+        )
 
-        def __delitem__(self, key):
-            current = list(self)
-            del current[key]
-            _assign(self, current, current, False)
+        insert = def_fn(
+            f"""
+            def insert(self, index, value):
+                overflowed, overflow_data, length = _mut_state(self)
+                if overflowed:
+                    overflow_data.insert(index, value)
+                    return
 
-        def insert(self, index, value):
-            current = list(self)
-            current.insert(index, value)
-            _assign(self, current, current, False)
+                if length == internal_size:
+                    current = list(self)
+                    current.insert(index, value)
+                    _assign(self, current, current, False)
+                    return
+
+                if index >= length:
+                    setattr(self, slots[length], value)
+                else:
+                    if index < -length:
+                        adjusted = 0
+                    else:
+                        {splice(6, [_adjust_index_snippet("index", "length", "adjusted")])}
+                    {guard(internal_size > 1, splice(5, [
+                        f"if {i} > adjusted and {i} <= length: self.{slots[i]} = self.{slots[i - 1]}"
+                        for i in range(internal_size - 1, 0, -1)
+                    ]))}
+                    setattr(self, slots[adjusted], value)
+
+                if length + 1 < internal_size:
+                    self.{slots[-1]}.length += 1
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            _assign=_assign,
+            IndexError=IndexError,
+        )
 
         def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"

@@ -1,4 +1,10 @@
-"""Test the memory optimized MutableMapping implementation for equivalence with builtins."""
+"""
+Test mutable MutableMapping APIs for equivalence with dict.
+
+Tests in this module exercise only mutation operations (__setitem__, __delitem__, and the
+mixin methods built on top of them). Read-only API coverage lives in test_mapping.py, which
+runs those tests against both Mapping and MutableMapping implementations.
+"""
 
 from collections.abc import Callable, MutableMapping
 from typing import Any
@@ -12,7 +18,6 @@ from tests.mapping import (
     keys,
     values,
     items,
-    eq_op,
     setitem,
     delitem,
     pop,
@@ -48,98 +53,6 @@ def harness[K, V](
         create_mut_mapping_class(size) for size in sizes
     ]
     shared.harness(seed, factories, ops, mapping.eq, mapping.eq_op_result)
-
-
-# Tests for abstract methods: __getitem__, __iter__, __len__
-
-
-def test_mut_mapping_len():
-    """Test that optimized mutable mappings have the same len semantics as dict."""
-    harness({}, [len])
-    harness({"a": 1}, [len])
-    harness({"a": 1, "b": 2}, [len])
-    harness({"a": 1, "b": 2, "c": 3}, [len])
-
-
-def test_mut_mapping_getitem():
-    """Test that optimized mutable mappings handle getitem correctly."""
-    harness({"a": 1, "b": 2, "c": 3}, [getitem("a"), getitem("b"), getitem("c")])
-
-    # Missing key should raise KeyError
-    harness({"a": 1}, [getitem("b")])
-    harness({}, [getitem("a")])
-
-
-def test_mut_mapping_getitem_various_key_types():
-    """Test that optimized mutable mappings handle various key types correctly."""
-    harness({1: "one", 2: "two"}, [getitem(1), getitem(2)])
-    harness({(1, 2): "tuple_key"}, [getitem((1, 2))])
-    harness({None: "none_value"}, [getitem(None)])
-    harness({True: "true", False: "false"}, [getitem(True), getitem(False)])
-
-
-def test_mut_mapping_iter():
-    """Test that optimized mutable mappings have the same iter semantics as dict."""
-    harness({}, [iter])
-    harness({"a": 1}, [iter])
-    harness({"a": 1, "b": 2, "c": 3}, [iter])
-
-
-# Tests for mixin methods: __contains__, keys, values, items, get, __eq__/__ne__
-
-
-def test_mut_mapping_contains():
-    """Test that optimized mutable mappings have the same contains semantics as dict."""
-    harness({"a": 1, "b": 2}, [contains("a"), contains("b"), contains("c", False)])
-    harness({}, [contains("a", False)])
-    harness({1: "one"}, [contains(1), contains("1", False)])
-    harness({None: "value"}, [contains(None)])
-
-
-def test_mut_mapping_keys():
-    """Test that optimized mutable mappings have the same keys semantics as dict."""
-    harness({}, [keys()])
-    harness({"a": 1}, [keys()])
-    harness({"a": 1, "b": 2, "c": 3}, [keys()])
-
-
-def test_mut_mapping_values():
-    """Test that optimized mutable mappings have the same values semantics as dict."""
-    harness({}, [values()])
-    harness({"a": 1}, [values()])
-    harness({"a": 1, "b": 2, "c": 3}, [values()])
-
-
-def test_mut_mapping_values_duplicates():
-    """Test that optimized mutable mappings handle duplicate values correctly."""
-    harness({"a": 1, "b": 1, "c": 1}, [values()])
-    harness({"a": None, "b": None}, [values()])
-
-
-def test_mut_mapping_items():
-    """Test that optimized mutable mappings have the same items semantics as dict."""
-    harness({}, [items()])
-    harness({"a": 1}, [items()])
-    harness({"a": 1, "b": 2, "c": 3}, [items()])
-
-
-def test_mut_mapping_get():
-    """Test that optimized mutable mappings have the same get semantics as dict."""
-    harness({"a": 1, "b": 2}, [get("a"), get("b"), get("c")])
-    harness({"a": 1}, [get("a", 100), get("b", 100)])
-    harness({}, [get("a"), get("a", "default")])
-
-
-def test_mut_mapping_get_none_value():
-    """Test that optimized mutable mappings handle get with None values correctly."""
-    harness({"a": None}, [get("a"), get("a", "default"), get("b")])
-
-
-def test_mut_mapping_eq():
-    """Test that optimized mutable mappings have the same equality semantics as dict."""
-    harness({"a": 1, "b": 2}, [eq_op({"a": 1, "b": 2}), eq_op({"a": 1}, False)])
-    harness({}, [eq_op({}), eq_op({"a": 1}, False)])
-    harness({"a": 1}, [eq_op({"a": 1}), eq_op({"a": 2}, False), eq_op({"b": 1}, False)])
 
 
 # Tests for MutableMapping abstract methods: __setitem__, __delitem__
@@ -182,6 +95,42 @@ def test_mut_mapping_delitem():
 
     # Delete from empty
     harness({}, [delitem("a")])
+
+    # Delete last element by insertion order (to_remove_idx == length - 1, no swap, length > 1)
+    harness(
+        {"a": 1, "b": 2, "c": 3},
+        [delitem("c"), len, contains("c", False), getitem("a"), getitem("b")],
+    )
+    harness({"a": 1, "b": 2}, [delitem("b"), len, contains("b", False), getitem("a")])
+
+    # Delete when length < internal_size (else branch: delattr last data slot, update END.length)
+    # Only element in an undersized mapping
+    harness({"a": 1}, [delitem("a"), len], internal_sizes=[3])
+    # First element (to_remove_idx == 0, triggers swap then delattr)
+    harness(
+        {"a": 1, "b": 2},
+        [delitem("a"), len, contains("a", False), getitem("b")],
+        internal_sizes=[5],
+    )
+    # Middle element (triggers swap then delattr)
+    harness({"a": 1, "b": 2, "c": 3}, [delitem("b"), len, contains("b", False)], internal_sizes=[5])
+    # Last by insertion order (to_remove_idx == length - 1, no swap, just delattr)
+    harness({"a": 1, "b": 2, "c": 3}, [delitem("c"), len, contains("c", False)], internal_sizes=[5])
+    # Missing key when length < internal_size
+    harness({"a": 1, "b": 2}, [delitem("z")], internal_sizes=[5])
+
+    # Sequential deletes transitioning from length == internal_size into length < internal_size
+    harness(
+        {"a": 1, "b": 2, "c": 3},
+        [delitem("a"), delitem("b"), len, contains("a", False), contains("b", False), getitem("c")],
+        internal_sizes=[3, 5],
+    )
+    # Delete a key that was swapped into a new position by the previous delete
+    harness(
+        {"a": 1, "b": 2, "c": 3},
+        [delitem("a"), delitem("c"), len, getitem("b")],
+        internal_sizes=[3],
+    )
 
 
 # Tests for MutableMapping mixin methods: pop, popitem, clear, update, setdefault
@@ -307,6 +256,18 @@ def test_mut_mapping_overflow_delitem():
         {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
         [delitem("z")],
         internal_sizes=[2, 3],
+    )
+    # Overflow recovery (length - 1 < internal_size) followed by slot-based delete in else branch
+    harness(
+        {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
+        [delitem("e"), delitem("a"), len, contains("a", False), contains("e", False)],
+        internal_sizes=[4],
+    )
+    # Delete all elements from overflow one by one, exercising overflow → Case A → Case B repeatedly
+    harness(
+        {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
+        [delitem("e"), delitem("d"), delitem("c"), delitem("b"), delitem("a"), len],
+        internal_sizes=[3, 4],
     )
 
 
