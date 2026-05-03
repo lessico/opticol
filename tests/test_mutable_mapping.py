@@ -183,6 +183,35 @@ def test_mut_mapping_delitem():
     # Delete from empty
     harness({}, [delitem("a")])
 
+    # Delete last element by insertion order (to_remove_idx == length - 1, no swap, length > 1)
+    harness({"a": 1, "b": 2, "c": 3}, [delitem("c"), len, contains("c", False), getitem("a"), getitem("b")])
+    harness({"a": 1, "b": 2}, [delitem("b"), len, contains("b", False), getitem("a")])
+
+    # Delete when length < internal_size (else branch: delattr last data slot, update END.length)
+    # Only element in an undersized mapping
+    harness({"a": 1}, [delitem("a"), len], internal_sizes=[3])
+    # First element (to_remove_idx == 0, triggers swap then delattr)
+    harness({"a": 1, "b": 2}, [delitem("a"), len, contains("a", False), getitem("b")], internal_sizes=[5])
+    # Middle element (triggers swap then delattr)
+    harness({"a": 1, "b": 2, "c": 3}, [delitem("b"), len, contains("b", False)], internal_sizes=[5])
+    # Last by insertion order (to_remove_idx == length - 1, no swap, just delattr)
+    harness({"a": 1, "b": 2, "c": 3}, [delitem("c"), len, contains("c", False)], internal_sizes=[5])
+    # Missing key when length < internal_size
+    harness({"a": 1, "b": 2}, [delitem("z")], internal_sizes=[5])
+
+    # Sequential deletes transitioning from length == internal_size into length < internal_size
+    harness(
+        {"a": 1, "b": 2, "c": 3},
+        [delitem("a"), delitem("b"), len, contains("a", False), contains("b", False), getitem("c")],
+        internal_sizes=[3, 5],
+    )
+    # Delete a key that was swapped into a new position by the previous delete
+    harness(
+        {"a": 1, "b": 2, "c": 3},
+        [delitem("a"), delitem("c"), len, getitem("b")],
+        internal_sizes=[3],
+    )
+
 
 # Tests for MutableMapping mixin methods: pop, popitem, clear, update, setdefault
 
@@ -307,6 +336,18 @@ def test_mut_mapping_overflow_delitem():
         {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
         [delitem("z")],
         internal_sizes=[2, 3],
+    )
+    # Overflow recovery (length - 1 < internal_size) followed by slot-based delete in else branch
+    harness(
+        {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
+        [delitem("e"), delitem("a"), len, contains("a", False), contains("e", False)],
+        internal_sizes=[4],
+    )
+    # Delete all elements from overflow one by one, exercising overflow → Case A → Case B repeatedly
+    harness(
+        {"a": 1, "b": 2, "c": 3, "d": 4, "e": 5},
+        [delitem("e"), delitem("d"), delitem("c"), delitem("b"), delitem("a"), len],
+        internal_sizes=[3, 4],
     )
 
 
