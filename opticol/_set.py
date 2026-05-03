@@ -161,36 +161,47 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 return False
             """,
             _mut_state=_mut_state,
-            slots=slots,
-        )
+            slots=slots)
 
-        def __iter__(self):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                yield from data
-                return
-            for slot in slots[:length]:
-                yield getattr(self, slot)
-
-        def add(self, value):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                data.add(value)
-                return
-
-            for slot in slots[:length]:
-                if getattr(self, slot) == value:
+        __iter__ = def_fn(f"""
+            def __iter__(self):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    yield from data
                     return
 
-            if length < internal_size:
-                setattr(self, slots[length], value)
-                if length + 1 < internal_size:
-                    getattr(self, slots[-1]).length += 1
-                return
+                {spliced(4,
+                         [f"if length == {i}: return\nyield self.{slots[i]}" for i in range(internal_size)])}
+                for slot in slots[:length]:
+                    yield getattr(self, slot)
+            """,
+            _mut_state=_mut_state,
+            slots=slots)
 
-            current = set(self)
-            current.add(value)
-            _assign(self, current, current, False)
+        add = def_fn(f"""
+            def add(self, value):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    data.add(value)
+                    return
+
+                {spliced(4,
+                         [f"if {i} < length and self.{slots[i]} == value: return" for i in range(internal_size)])}
+
+                if length < internal_size:
+                    setattr(self, slots[length], value)
+                    if length + 1 < internal_size:
+                        self.{slots[-1]}.length += 1
+                    return
+
+                current = set(self)
+                current.add(value)
+                _assign(self, current, current, False)
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            _assign=_assign)
 
         def discard(self, value):
             overflowed, data, length = _mut_state(self)
