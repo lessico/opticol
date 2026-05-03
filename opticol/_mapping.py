@@ -181,14 +181,14 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                 return
 
             # Otherwise, try to find the location of the key.
-            to_remove_idx = -1
+            to_remove_idx = None
             for i, slot in enumerate(slots[:length]):
                 tup = getattr(self, slot)
                 if tup[0] == key:
                     to_remove_idx = i
                     break
 
-            if to_remove_idx < 0:
+            if to_remove_idx is None:
                 raise KeyError(key)
 
             if to_remove_idx != length - 1:

@@ -5,7 +5,6 @@ Internal module to consolidate dynamic code generation logic and modifications.
 from collections.abc import Sequence
 from typing import Any
 
-
 def def_fn(code: str, **kwargs) -> Any:
     """
     Easily define a function dynamically using a string at runtime.

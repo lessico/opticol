@@ -161,9 +161,11 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 return False
             """,
             _mut_state=_mut_state,
-            slots=slots)
+            slots=slots,
+        )
 
-        __iter__ = def_fn(f"""
+        __iter__ = def_fn(
+            f"""
             def __iter__(self):
                 overflowed, data, length = _mut_state(self)
                 if overflowed:
@@ -176,9 +178,11 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                     yield getattr(self, slot)
             """,
             _mut_state=_mut_state,
-            slots=slots)
+            slots=slots,
+        )
 
-        add = def_fn(f"""
+        add = def_fn(
+            f"""
             def add(self, value):
                 overflowed, data, length = _mut_state(self)
                 if overflowed:
@@ -201,36 +205,44 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             _mut_state=_mut_state,
             slots=slots,
             internal_size=internal_size,
-            _assign=_assign)
+            _assign=_assign,
+        )
 
-        def discard(self, value):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                data.discard(value)
-                if len(data) <= internal_size:
-                    _assign(self, data, data, False)
-                return
+        discard = _debug_def_fn(
+            f"""
+            def discard(self, value):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    data.discard(value)
+                    if len(data) <= internal_size:
+                        _assign(self, data, data, False)
+                    return
 
-            swap_idx = length - 1
-            to_remove_slot_idx = None
-            for i, slot in enumerate(slots[:length]):
-                if getattr(self, slot) == value:
-                    to_remove_slot_idx = i
-                    break
+                swap_idx = length - 1
+                to_remove_slot_idx = None
+                {spliced(4,
+                         [f"if {i} < length and self.{slots[i]} == value: to_remove_slot_idx = {i}" for i in range(internal_size)])}
 
-            if to_remove_slot_idx is None:
-                return
+                if to_remove_slot_idx is None:
+                    return
 
-            if to_remove_slot_idx != swap_idx:
-                setattr(self, slots[to_remove_slot_idx], getattr(self, slots[swap_idx]))
+                if to_remove_slot_idx != swap_idx:
+                    setattr(self, slots[to_remove_slot_idx], getattr(self, slots[swap_idx]))
 
-            if swap_idx < internal_size - 1:
-                delattr(self, slots[swap_idx])
+                if swap_idx < internal_size - 1:
+                    delattr(self, slots[swap_idx])
 
-            if swap_idx == internal_size - 1:
-                setattr(self, slots[-1], END(length - 1))
-            else:
-                getattr(self, slots[-1]).length -= 1
+                if swap_idx == internal_size - 1:
+                    self.{slots[-1]} = END(length - 1)
+                else:
+                    self.{slots[-1]}.length -= 1
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+            internal_size=internal_size,
+            END=END,
+            _assign=_assign,
+        )
 
         def __repr__(self):
             if len(self) == 0:
