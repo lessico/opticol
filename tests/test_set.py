@@ -1,9 +1,16 @@
-"""Test the memory optimized Set implementation for equivalence with builtins."""
+"""
+Test read-only Set APIs for equivalence with builtins.
+
+Tests in this module exercise only read-only operations (__contains__, __iter__, __len__,
+isdisjoint, comparisons, and non-mutating set algebra). They run against both the immutable
+Set (frozenset) and the mutable MutableSet implementations, since a MutableSet must also
+satisfy the full Set interface.
+"""
 
 from collections.abc import Callable, Set, Sequence
 from typing import Any
 
-from opticol.factory import create_set_class
+from opticol.factory import create_mut_set_class, create_set_class
 from tests import set as set_, shared
 from tests.set import contains, isdisjoint, le, lt, ge, gt, eq_op, and_op, or_op, sub, xor
 
@@ -23,7 +30,12 @@ def harness[T](
         ops: The operations whose behavior needs to be validated across builtins and optimized
             variants.
     """
-    factories: Sequence[shared.Factory[Set]] = [set, frozenset, create_set_class(len(seed))]
+    factories: Sequence[shared.Factory[Set]] = [
+        set,
+        frozenset,
+        create_set_class(len(seed)),
+        create_mut_set_class(len(seed)),
+    ]
     shared.harness(seed, factories, ops, set_.eq, set_.eq_op_result)
 
 

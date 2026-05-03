@@ -1,4 +1,10 @@
-"""Test the memory optimized MutableMapping implementation for equivalence with builtins."""
+"""
+Test mutable MutableMapping APIs for equivalence with dict.
+
+Tests in this module exercise only mutation operations (__setitem__, __delitem__, and the
+mixin methods built on top of them). Read-only API coverage lives in test_mapping.py, which
+runs those tests against both Mapping and MutableMapping implementations.
+"""
 
 from collections.abc import Callable, MutableMapping
 from typing import Any
@@ -12,7 +18,6 @@ from tests.mapping import (
     keys,
     values,
     items,
-    eq_op,
     setitem,
     delitem,
     pop,
@@ -48,98 +53,6 @@ def harness[K, V](
         create_mut_mapping_class(size) for size in sizes
     ]
     shared.harness(seed, factories, ops, mapping.eq, mapping.eq_op_result)
-
-
-# Tests for abstract methods: __getitem__, __iter__, __len__
-
-
-def test_mut_mapping_len():
-    """Test that optimized mutable mappings have the same len semantics as dict."""
-    harness({}, [len])
-    harness({"a": 1}, [len])
-    harness({"a": 1, "b": 2}, [len])
-    harness({"a": 1, "b": 2, "c": 3}, [len])
-
-
-def test_mut_mapping_getitem():
-    """Test that optimized mutable mappings handle getitem correctly."""
-    harness({"a": 1, "b": 2, "c": 3}, [getitem("a"), getitem("b"), getitem("c")])
-
-    # Missing key should raise KeyError
-    harness({"a": 1}, [getitem("b")])
-    harness({}, [getitem("a")])
-
-
-def test_mut_mapping_getitem_various_key_types():
-    """Test that optimized mutable mappings handle various key types correctly."""
-    harness({1: "one", 2: "two"}, [getitem(1), getitem(2)])
-    harness({(1, 2): "tuple_key"}, [getitem((1, 2))])
-    harness({None: "none_value"}, [getitem(None)])
-    harness({True: "true", False: "false"}, [getitem(True), getitem(False)])
-
-
-def test_mut_mapping_iter():
-    """Test that optimized mutable mappings have the same iter semantics as dict."""
-    harness({}, [iter])
-    harness({"a": 1}, [iter])
-    harness({"a": 1, "b": 2, "c": 3}, [iter])
-
-
-# Tests for mixin methods: __contains__, keys, values, items, get, __eq__/__ne__
-
-
-def test_mut_mapping_contains():
-    """Test that optimized mutable mappings have the same contains semantics as dict."""
-    harness({"a": 1, "b": 2}, [contains("a"), contains("b"), contains("c", False)])
-    harness({}, [contains("a", False)])
-    harness({1: "one"}, [contains(1), contains("1", False)])
-    harness({None: "value"}, [contains(None)])
-
-
-def test_mut_mapping_keys():
-    """Test that optimized mutable mappings have the same keys semantics as dict."""
-    harness({}, [keys()])
-    harness({"a": 1}, [keys()])
-    harness({"a": 1, "b": 2, "c": 3}, [keys()])
-
-
-def test_mut_mapping_values():
-    """Test that optimized mutable mappings have the same values semantics as dict."""
-    harness({}, [values()])
-    harness({"a": 1}, [values()])
-    harness({"a": 1, "b": 2, "c": 3}, [values()])
-
-
-def test_mut_mapping_values_duplicates():
-    """Test that optimized mutable mappings handle duplicate values correctly."""
-    harness({"a": 1, "b": 1, "c": 1}, [values()])
-    harness({"a": None, "b": None}, [values()])
-
-
-def test_mut_mapping_items():
-    """Test that optimized mutable mappings have the same items semantics as dict."""
-    harness({}, [items()])
-    harness({"a": 1}, [items()])
-    harness({"a": 1, "b": 2, "c": 3}, [items()])
-
-
-def test_mut_mapping_get():
-    """Test that optimized mutable mappings have the same get semantics as dict."""
-    harness({"a": 1, "b": 2}, [get("a"), get("b"), get("c")])
-    harness({"a": 1}, [get("a", 100), get("b", 100)])
-    harness({}, [get("a"), get("a", "default")])
-
-
-def test_mut_mapping_get_none_value():
-    """Test that optimized mutable mappings handle get with None values correctly."""
-    harness({"a": None}, [get("a"), get("a", "default"), get("b")])
-
-
-def test_mut_mapping_eq():
-    """Test that optimized mutable mappings have the same equality semantics as dict."""
-    harness({"a": 1, "b": 2}, [eq_op({"a": 1, "b": 2}), eq_op({"a": 1}, False)])
-    harness({}, [eq_op({}), eq_op({"a": 1}, False)])
-    harness({"a": 1}, [eq_op({"a": 1}), eq_op({"a": 2}, False), eq_op({"b": 1}, False)])
 
 
 # Tests for MutableMapping abstract methods: __setitem__, __delitem__
