@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSequence, Sequence
 
-from opticol._codegen import def_fn, spliced
+from opticol._codegen import def_fn, splice
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END
 
@@ -75,7 +75,7 @@ class OptimizedSequenceMeta(OptimizedCollectionMeta[Sequence]):
                         f"it has {{len(seq)}}."
                     )
 
-                {spliced(
+                {splice(
                     4,
                     [f"self.{slots[i]} = seq[{i}]" for i in range(len(slots))]
                 )}""")

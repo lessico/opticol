@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
-from opticol._codegen import def_fn, guard, spliced
+from opticol._codegen import def_fn, guard, multisplice, splice
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END
 
@@ -156,8 +156,13 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                 overflowed, data, length = _mut_state(self)
                 if overflowed:
                     return value in data
-                {spliced(4,
-                         [f"if length == {i}: return False\nif self.{slots[i]} == value: return True" for i in range(internal_size)])}
+                {multisplice(4, [
+                    [
+                        f"if length == {i}: return False",
+                        f"if self.{slots[i]} == value: return True",
+                    ]
+                    for i in range(internal_size)
+                ])}
                 return False
             """,
             _mut_state=_mut_state,
@@ -172,8 +177,13 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                     yield from data
                     return
 
-                {spliced(4,
-                         [f"if length == {i}: return\nyield self.{slots[i]}" for i in range(internal_size)])}
+                {multisplice(4, [
+                    [
+                        f"if length == {i}: return",
+                        f"yield self.{slots[i]}",
+                    ]
+                    for i in range(internal_size)
+                ])}
                 for slot in slots[:length]:
                     yield getattr(self, slot)
             """,
@@ -189,7 +199,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                     data.add(value)
                     return
 
-                {spliced(4,
+                {splice(4,
                          [f"if {i} < length and self.{slots[i]} == value: return" for i in range(internal_size)])}
 
                 if length < internal_size:
@@ -220,7 +230,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
 
                 swap_idx = length - 1
                 to_remove_slot_idx = None
-                {spliced(4,
+                {splice(4,
                          [f"if {i} < length and self.{slots[i]} == value: to_remove_slot_idx = {i}" for i in range(internal_size)])}
 
                 if to_remove_slot_idx is None:

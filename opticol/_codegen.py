@@ -5,6 +5,7 @@ Internal module to consolidate dynamic code generation logic and modifications.
 from collections.abc import Sequence
 from typing import Any
 
+
 def def_fn(code: str, **kwargs) -> Any:
     """
     Easily define a function dynamically using a string at runtime.
@@ -43,9 +44,15 @@ def guard(flag: bool, code: str, other: str = "") -> str:
     return other
 
 
-def spliced(level: int, strs: Sequence[str]) -> str:
+def splice(level: int, strs: Sequence[str]) -> str:
     sep = "\n" + ("    " * level)
     ls = [l for s in strs for l in rootit(s).splitlines()]
+    return sep.join(ls)
+
+
+def multisplice(level: int, seqs: Sequence[Sequence[str]]) -> str:
+    sep = "\n" + ("    " * level)
+    ls = [line for seq in seqs for line in seq]
     return sep.join(ls)
 
 
