@@ -496,6 +496,22 @@ def test_mut_seq_delitem_noop_slices():
     )
 
 
+def test_mut_seq_delitem_invalid_key():
+    """Test that __delitem__ raises TypeError for non-int, non-slice keys."""
+    harness([1, 2, 3], [delitem("x")])
+    harness([1, 2, 3], [delitem(1.0)])
+    harness([], [delitem(None)])
+
+
+def test_mut_seq_delitem_full_capacity_size4():
+    """Test __delitem__ at full capacity for a size-4 sequence, exercising the wider unrolled shift."""
+    harness([1, 2, 3, 4], [delitem(0), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3, 4], [delitem(1), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3, 4], [delitem(2), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3, 4], [delitem(-1), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3, 4], [delitem(-2), len, getitem(slice(None))], internal_sizes=[4])
+
+
 def test_mut_seq_delitem_underflow():
     """Test __delitem__ when the sequence uses fewer slots than internal_size allows."""
     harness([1, 2], [delitem(0), len, getitem(slice(None))], internal_sizes=[4])
@@ -509,6 +525,21 @@ def test_mut_seq_delitem_underflow():
     # Out-of-bounds delete in underflow raises IndexError
     harness([1, 2], [delitem(5)], internal_sizes=[4])
     harness([1, 2], [delitem(-5)], internal_sizes=[4])
+
+
+def test_mut_seq_delitem_underflow_three_elements():
+    """Test __delitem__ underflow with 3 elements in size-4, exercising more of the shift loop.
+
+    The existing underflow tests only seed 2 elements. With 3 elements the shift loop has more
+    work to do at each deletion position and the freed slot is deeper in the array.
+    """
+    harness([1, 2, 3], [delitem(0), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3], [delitem(1), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3], [delitem(2), len, getitem(slice(None))], internal_sizes=[4])
+    harness([1, 2, 3], [delitem(-1), len, getitem(slice(None))], internal_sizes=[4])
+
+    # Delete all three elements one by one, verifying state after each step
+    harness([1, 2, 3], [delitem(0), delitem(0), delitem(0), len], internal_sizes=[4])
 
 
 def test_mut_seq_mixin_clear_relies_on_pop():

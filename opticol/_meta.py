@@ -127,13 +127,13 @@ class OptimizedCollectionMeta[C](ABCMeta):
             f"""
             def _mut_state(self):
                 last = self.{slots[-1]}
-                if isinstance(last, END):
+                if type(last) is END:
                     inline_length = last.length
                     if inline_length < 0:
                         l = self.{slots[0]}.data
                         return True, l, len(l)
                     return False, None, inline_length
-                if isinstance(last, Overflow):
+                if type(last) is Overflow:
                     l = last.data
                     return True, l, len(l)
                 return False, None, internal_size""",
@@ -148,13 +148,13 @@ class OptimizedCollectionMeta[C](ABCMeta):
             f"""
             def _len(self):
                 last = self.{slots[-1]}
-                if isinstance(last, END):
+                if type(last) is END:
                     inline_length = last.length
                     if inline_length < 0:
                         l = self.{slots[0]}.data
                         return len(l)
                     return inline_length
-                if isinstance(last, Overflow):
+                if type(last) is Overflow:
                     l = last.data
                     return len(l)
                 return internal_size""",

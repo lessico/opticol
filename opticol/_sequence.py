@@ -219,27 +219,26 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                         _assign(self, overflow_data, overflow_data, False)
                     return
 
-                match key:
-                    case int():
-                        {splice(6, [_adjust_index_snippet("key", "length", "adjusted")])}
-                        {guard(internal_size > 1, splice(6, [
-                            f"if {i} >= adjusted and {i} < length - 1: self.{slots[i]} = self.{slots[i + 1]}"
-                            for i in range(internal_size - 1)
-                        ]))}
+                if isinstance(key, int):
+                    {splice(5, [_adjust_index_snippet("key", "length", "adjusted")])}
+                    {guard(internal_size > 1, splice(5, [
+                        f"if {i} >= adjusted and {i} < length - 1: self.{slots[i]} = self.{slots[i + 1]}"
+                        for i in range(internal_size - 1)
+                    ]))}
 
-                        if length == internal_size:
-                            self.{slots[-1]} = END(length - 1)
-                        else:
-                            delattr(self, slots[length - 1])
-                            self.{slots[-1]}.length -= 1
-                    case slice():
-                        current = list(self)
-                        del current[key]
-                        _assign(self, current, current, False)
-                    case _:
-                        raise TypeError(
-                            f"Sequence accessors must be integers or slices, not {{type(key)}}"
-                        )
+                    if length == internal_size:
+                        self.{slots[-1]} = END(length - 1)
+                    else:
+                        delattr(self, slots[length - 1])
+                        self.{slots[-1]}.length -= 1
+                elif isinstance(key, slice):
+                    current = list(self)
+                    del current[key]
+                    _assign(self, current, current, False)
+                else:
+                    raise TypeError(
+                        f"Sequence accessors must be integers or slices, not {{type(key)}}"
+                    )
             """,
             _mut_state=_mut_state,
             slots=slots,
