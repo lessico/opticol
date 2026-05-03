@@ -184,14 +184,21 @@ def test_mut_mapping_delitem():
     harness({}, [delitem("a")])
 
     # Delete last element by insertion order (to_remove_idx == length - 1, no swap, length > 1)
-    harness({"a": 1, "b": 2, "c": 3}, [delitem("c"), len, contains("c", False), getitem("a"), getitem("b")])
+    harness(
+        {"a": 1, "b": 2, "c": 3},
+        [delitem("c"), len, contains("c", False), getitem("a"), getitem("b")],
+    )
     harness({"a": 1, "b": 2}, [delitem("b"), len, contains("b", False), getitem("a")])
 
     # Delete when length < internal_size (else branch: delattr last data slot, update END.length)
     # Only element in an undersized mapping
     harness({"a": 1}, [delitem("a"), len], internal_sizes=[3])
     # First element (to_remove_idx == 0, triggers swap then delattr)
-    harness({"a": 1, "b": 2}, [delitem("a"), len, contains("a", False), getitem("b")], internal_sizes=[5])
+    harness(
+        {"a": 1, "b": 2},
+        [delitem("a"), len, contains("a", False), getitem("b")],
+        internal_sizes=[5],
+    )
     # Middle element (triggers swap then delattr)
     harness({"a": 1, "b": 2, "c": 3}, [delitem("b"), len, contains("b", False)], internal_sizes=[5])
     # Last by insertion order (to_remove_idx == length - 1, no swap, just delattr)

@@ -164,7 +164,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                 tup = (key, value)
                 setattr(self, slots[length], tup)
                 if length < internal_size - 1:
-                    getattr(self, slots[-1]).length = length + 1
+                    getattr(self, slots[-1]).length += 1
 
             current = dict(self)
             current[key] = value
@@ -198,7 +198,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                 setattr(self, slots[-1], END(length - 1))
             else:
                 delattr(self, slots[length - 1])
-                getattr(self, slots[-1]).length = length - 1
+                getattr(self, slots[-1]).length -= 1
 
         def __iter__(self):
             overflowed, data, length = _mut_state(self)

@@ -8,7 +8,7 @@ from typing import Any, Optional
 
 from collections.abc import Callable, MutableSet, Sequence, Set
 
-from opticol._codegen import def_fn, guard
+from opticol._codegen import def_fn, guard, spliced
 from opticol._meta import OptimizedCollectionMeta
 from opticol._sentinel import END
 
@@ -150,14 +150,19 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
         def __init__(self, s):
             _assign(self, s, s, True)
 
-        def __contains__(self, value):
-            overflowed, data, length = _mut_state(self)
-            if overflowed:
-                return value in data
-            for slot in slots[:length]:
-                if getattr(self, slot) == value:
-                    return True
-            return False
+        __contains__ = def_fn(
+            f"""
+            def __contains__(self, value):
+                overflowed, data, length = _mut_state(self)
+                if overflowed:
+                    return value in data
+                {spliced(4,
+                         [f"if length == {i}: return False\nif self.{slots[i]} == value: return True" for i in range(internal_size)])}
+                return False
+            """,
+            _mut_state=_mut_state,
+            slots=slots,
+        )
 
         def __iter__(self):
             overflowed, data, length = _mut_state(self)
@@ -180,7 +185,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             if length < internal_size:
                 setattr(self, slots[length], value)
                 if length + 1 < internal_size:
-                    getattr(self, slots[-1]).length = length + 1
+                    getattr(self, slots[-1]).length += 1
                 return
 
             current = set(self)
@@ -214,7 +219,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             if swap_idx == internal_size - 1:
                 setattr(self, slots[-1], END(length - 1))
             else:
-                getattr(self, slots[-1]).length = length - 1
+                getattr(self, slots[-1]).length -= 1
 
         def __repr__(self):
             if len(self) == 0:

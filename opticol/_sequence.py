@@ -222,7 +222,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                         setattr(self, slots[length - 1], END(length - 1))
                     else:
                         delattr(self, slots[length - 1])
-                        getattr(self, slots[internal_size - 1]).length = length - 1
+                        getattr(self, slots[internal_size - 1]).length -= 1
                 case slice():
                     current = list(self)
                     del current[key]
@@ -260,7 +260,7 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                 setattr(self, slots[adjusted], value)
 
             if length < internal_size - 1:
-                getattr(self, slots[internal_size - 1]).length = length + 1
+                getattr(self, slots[internal_size - 1]).length += 1
 
         def __repr__(self):
             return f"[{", ".join(repr(val) for val in self)}]"
