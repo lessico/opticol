@@ -208,7 +208,7 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
             _assign=_assign,
         )
 
-        discard = _debug_def_fn(
+        discard = def_fn(
             f"""
             def discard(self, value):
                 overflowed, data, length = _mut_state(self)
