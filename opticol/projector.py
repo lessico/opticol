@@ -145,6 +145,39 @@ class PassThroughProjector(Projector):
         return mut_mapping
 
 
+class _ProjectorRef:
+    """Hashable callable wrapper for a projector method with value-based identity.
+
+    Wraps a named method on an OptimizedCollectionProjector so that two wrappers
+    for the same method on same-configuration projectors compare equal and hash
+    identically. This allows the factory cache to recognise equivalent project
+    callables across different projector instances that share the same configuration,
+    something that bound methods cannot do because their hash and equality are
+    identity-based at the C level.
+    """
+
+    __slots__ = ("_projector", "_method_name")
+
+    def __init__(
+        self, projector: "OptimizedCollectionProjector", method_name: str
+    ) -> None:
+        self._projector = projector
+        self._method_name = method_name
+
+    def __call__(self, collection, /):
+        return getattr(self._projector, self._method_name)(collection)
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, _ProjectorRef)
+            and self._method_name == other._method_name
+            and self._projector == other._projector
+        )
+
+    def __hash__(self) -> int:
+        return hash((type(self), self._method_name, self._projector))
+
+
 class OptimizedCollectionProjector(Projector):
     """Primary projector implementation using slot-based optimization for small collections.
 
@@ -200,27 +233,43 @@ class OptimizedCollectionProjector(Projector):
             recursive: Flag if collection instances created from runtime operations should also be
                 optimized via the same projector.
         """
-        # Will be either True (if recursive is True) or None (if recursive if False). When *anding*
-        # with the possible project function, the result will either be the second argument or None
-        # respectively.
-        project_guard = recursive or None
+        self._min_size = min_size
+        self._max_size = max_size
+        self._recursive = recursive
+
+        seq_project = _ProjectorRef(self, "seq") if recursive else None
+        mut_seq_project = _ProjectorRef(self, "mut_seq") if recursive else None
+        set_project = _ProjectorRef(self, "set") if recursive else None
+        mut_set_project = _ProjectorRef(self, "mut_set") if recursive else None
 
         self._seq = self._create_sized_router(
-            min_size, max_size, lambda i: create_seq_class(i, project_guard and self.seq)
+            min_size, max_size, lambda i: create_seq_class(i, seq_project)
         )
         self._mut_seq = self._create_sized_router(
-            min_size, max_size, lambda i: create_mut_seq_class(i, project_guard and self.mut_seq)
+            min_size, max_size, lambda i: create_mut_seq_class(i, mut_seq_project)
         )
 
         self._set = self._create_sized_router(
-            min_size, max_size, lambda i: create_set_class(i, project_guard and self.set)
+            min_size, max_size, lambda i: create_set_class(i, set_project)
         )
         self._mut_set = self._create_sized_router(
-            min_size, max_size, lambda i: create_mut_set_class(i, project_guard and self.mut_set)
+            min_size, max_size, lambda i: create_mut_set_class(i, mut_set_project)
         )
 
         self._mapping = self._create_sized_router(min_size, max_size, create_mapping_class)
         self._mut_mapping = self._create_sized_router(min_size, max_size, create_mut_mapping_class)
+
+    def __eq__(self, other: object) -> bool:
+        return (
+            isinstance(other, OptimizedCollectionProjector)
+            and type(self) is type(other)
+            and self._min_size == other._min_size
+            and self._max_size == other._max_size
+            and self._recursive == other._recursive
+        )
+
+    def __hash__(self) -> int:
+        return hash((type(self), self._min_size, self._max_size, self._recursive))
 
     def seq[T](self, seq: Sequence[T], /) -> Sequence[T]:
         return self._seq(seq)

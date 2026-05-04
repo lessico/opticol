@@ -125,6 +125,7 @@ def cached[F: Callable[..., Any]](
                 return inner_func(*args, **kwargs)
 
             if key not in cache:
+                print(f"cache miss for key: {key} on {inner_func.__name__}")
                 cache[key] = inner_func(*args, **kwargs)
             return cache[key]
 

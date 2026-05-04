@@ -19,7 +19,7 @@ For general use cases where memory isn't constrained, standard Python collection
 
 ## Usage
 
-To install opticol, simply do `pip install opticol`. Currently the package is still in beta to allow for quicker iteration, but should be released to a stable version soon.
+To install opticol, simply do `pip install opticol`.
 
 ### Quick Start (Convenience API)
 
