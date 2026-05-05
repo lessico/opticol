@@ -19,6 +19,8 @@ For general use cases where memory isn't constrained, standard Python collection
 
 ## Usage
 
+To install opticol, simply do `pip install opticol`.
+
 ### Quick Start (Convenience API)
 
 The simplest way to use opticol is via the convenience functions:

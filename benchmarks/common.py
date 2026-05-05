@@ -86,6 +86,11 @@ class BenchmarkOperation:
         return op
 
 
+# Maps id(ns) -> op_key -> accumulated pytest.param list, enabling repeated
+# benchmark_suite calls to the same namespace to build up cases incrementally.
+_case_registry: dict[int, dict[str, list]] = {}
+
+
 def benchmark_suite[C](
     *,
     iterations: int,
@@ -100,10 +105,16 @@ def benchmark_suite[C](
             raise ValueError(f"Duplicate BenchmarkOperation key: '{op.key}'")
         seen_keys.add(op.key)
 
-    parameterized_cases = [pytest.param(case, id=case.key) for case in cases]
+    ns_id = id(ns)
+    if ns_id not in _case_registry:
+        _case_registry[ns_id] = {}
+
+    new_params = [pytest.param(case, id=case.key) for case in cases]
 
     for op in bench:
-        ns[f"bench_{op.key}"] = _make_bench_fn(iterations, rounds, op, parameterized_cases)
+        fn_key = f"bench_{op.key}"
+        _case_registry[ns_id].setdefault(fn_key, []).extend(new_params)
+        ns[fn_key] = _make_bench_fn(iterations, rounds, op, _case_registry[ns_id][fn_key])
 
 
 def _make_bench_fn(

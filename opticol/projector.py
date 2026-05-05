@@ -32,6 +32,7 @@ from collections.abc import (
     Sequence,
     Set,
 )
+from typing import ClassVar
 
 from opticol.factory import (
     create_mapping_class,
@@ -160,6 +161,9 @@ class OptimizedCollectionProjector(Projector):
     The projector also supports recursive optimization: when slicing or using set operations on
     optimized collections, the results are automatically routed back through the projector,
     maintaining optimization for nested structures.
+
+    Instances are flyweights: constructing with the same arguments always returns the same object,
+    so the factory cache is shared across all callers with identical configuration.
     """
 
     @staticmethod
@@ -189,6 +193,16 @@ class OptimizedCollectionProjector(Projector):
 
         return router
 
+    _instances: ClassVar[dict[tuple, "OptimizedCollectionProjector"]] = {}
+
+    def __new__(
+        cls, min_size: int, max_size: int, recursive: bool
+    ) -> "OptimizedCollectionProjector":
+        key = (cls, min_size, max_size, recursive)
+        if key not in OptimizedCollectionProjector._instances:
+            OptimizedCollectionProjector._instances[key] = super().__new__(cls)
+        return OptimizedCollectionProjector._instances[key]
+
     def __init__(self, min_size: int, max_size: int, recursive: bool) -> None:
         """Initialize the projector with a continuous size range for optimization.
 
@@ -200,7 +214,10 @@ class OptimizedCollectionProjector(Projector):
             recursive: Flag if collection instances created from runtime operations should also be
                 optimized via the same projector.
         """
-        # Will be either True (if recursive is True) or None (if recursive if False). When *anding*
+        if hasattr(self, "_seq"):
+            return
+
+        # Will be either True (if recursive is True) or None (if recursive is False). When *anding*
         # with the possible project function, the result will either be the second argument or None
         # respectively.
         project_guard = recursive or None
