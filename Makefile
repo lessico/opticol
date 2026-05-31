@@ -10,6 +10,3 @@ lint:
 
 test:
 	pytest
-
-bench:
-	pytest benchmarks/
