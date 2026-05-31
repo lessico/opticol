@@ -295,9 +295,9 @@ dev = [
     { name = "black", specifier = ">=26.5.1" },
     { name = "codespell", specifier = ">=2.4.2" },
     { name = "guppy3", git = "https://github.com/zhuyifei1999/guppy3.git?rev=da86ab98abf20c57b9ead4d653157af8baaa8efd" },
-    { name = "mypy", specifier = ">=1.19.0" },
+    { name = "mypy", specifier = ">=2.1.0" },
     { name = "pylint", specifier = ">=4.0.4" },
-    { name = "pytest", specifier = ">=9.0.2" },
+    { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-benchmark", specifier = ">=5.2.3" },
     { name = "pytest-regex", specifier = ">=0.2.0" },
 ]
