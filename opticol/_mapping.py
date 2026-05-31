@@ -140,7 +140,7 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
                     [
                         f"if {i} >= length: raise KeyError(key)",
                         f"item = self.{slot}",
-                        f"if item[0] == key: return item[1]",
+                        "if item[0] == key: return item[1]",
                     ]
                     for i, slot in enumerate(slots)
                 ])}
@@ -195,7 +195,10 @@ class OptimizedMutableMappingMeta(OptimizedCollectionMeta[MutableMapping]):
 
                 swap_idx = length - 1
                 to_remove_slot_idx = None
-                {splice(4, [f"if {i} < length and self.{slots[i]}[0] == key: to_remove_slot_idx = {i}" for i in range(internal_size)])}
+                {splice(4, [
+                    f"if {i} < length and self.{slots[i]}[0] == key: to_remove_slot_idx = {i}"
+                    for i in range(internal_size)
+                ])}
 
                 if to_remove_slot_idx is None:
                     raise KeyError(key)

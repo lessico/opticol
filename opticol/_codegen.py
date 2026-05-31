@@ -39,18 +39,55 @@ def def_fn(code: str, **kwargs) -> Any:
 
 
 def guard(flag: bool, code: str, other: str = "") -> str:
+    """
+    Based on the result of the flag, will return one piece of code or another.
+
+    Args:
+        flag: The condition to determine which code to return.
+        code: The code to return if the flag is True.
+        other: The code to return if the flag is False. Defaults to empty string.
+
+    Returns:
+        The final evaluated code snippet based on the flag value.
+    """
     if flag:
         return code
     return other
 
 
 def splice(level: int, strs: Sequence[str]) -> str:
+    """
+    Splices the given code snippets with the given indentation level.
+
+    The indentation level is added to the rooted versions of the strings, so this can help
+    readability when splicing a multiline code snippet.
+
+    Args:
+        level: The desired indentation level to add to the code snippets.
+        strs: The multiple code snippets to add the indentation level to and combine.
+
+    Returns:
+        The final composed, spliced together code snippet which joined all the strs with the desired
+        indentation level.
+    """
     sep = "\n" + ("    " * level)
     ls = [l for s in strs for l in rootit(s).splitlines()]
     return sep.join(ls)
 
 
 def multisplice(level: int, seqs: Sequence[Sequence[str]]) -> str:
+    """
+    Nearly equivalent to splice but expects lines to be separated rather than provided as snippets,
+    and does not root the provided strings.
+
+    Args:
+        level: The desired identation level to add to each line.
+        seqs: The code snippets to splice together already split by line.
+
+    Returns:
+        The final composed string with identation levels added to each individual line as they were
+        provided.
+    """
     sep = "\n" + ("    " * level)
     ls = [line for seq in seqs for line in seq]
     return sep.join(ls)

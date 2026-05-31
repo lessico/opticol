@@ -1,4 +1,4 @@
-.PHONY: format lint test
+.PHONY: format lint test bench
 
 format:
 	black opticol tests benchmarks
@@ -12,4 +12,5 @@ test:
 	pytest
 
 bench:
-	pytest benchmarks/
+	@ESCAPED=$$(python3 -c "import re,sys;print(re.escape(sys.argv[1]))" "$(PATTERN)"); \
+	pytest benchmarks/ --benchmark-only --regex ".*$$ESCAPED.*" $(if $(SAVE),--benchmark-save="$(SAVE)")

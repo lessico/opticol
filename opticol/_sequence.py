@@ -222,7 +222,10 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                 if isinstance(key, int):
                     {splice(5, [_adjust_index_snippet("key", "length", "adjusted")])}
                     {guard(internal_size > 1, splice(5, [
-                        f"if {i} >= adjusted and {i} < length - 1: self.{slots[i]} = self.{slots[i + 1]}"
+                        (
+                            f"if {i} >= adjusted and {i} < length - 1: "
+                            f"self.{slots[i]} = self.{slots[i + 1]}"
+                        )
                         for i in range(internal_size - 1)
                     ]))}
 
@@ -270,7 +273,10 @@ class OptimizedMutableSequenceMeta(OptimizedCollectionMeta[MutableSequence]):
                     else:
                         {splice(6, [_adjust_index_snippet("index", "length", "adjusted")])}
                     {guard(internal_size > 1, splice(5, [
-                        f"if {i} > adjusted and {i} <= length: self.{slots[i]} = self.{slots[i - 1]}"
+                        (
+                            f"if {i} > adjusted and {i} <= length: "
+                            f"self.{slots[i]} = self.{slots[i - 1]}"
+                        )
                         for i in range(internal_size - 1, 0, -1)
                     ]))}
                     setattr(self, slots[adjusted], value)

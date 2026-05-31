@@ -199,8 +199,10 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
                     data.add(value)
                     return
 
-                {splice(4,
-                         [f"if {i} < length and self.{slots[i]} == value: return" for i in range(internal_size)])}
+                {splice(4, [
+                    f"if {i} < length and self.{slots[i]} == value: return"
+                    for i in range(internal_size)
+                ])}
 
                 if length < internal_size:
                     setattr(self, slots[length], value)
@@ -230,8 +232,10 @@ class OptimizedMutableSetMeta(OptimizedCollectionMeta[MutableSet]):
 
                 swap_idx = length - 1
                 to_remove_slot_idx = None
-                {splice(4,
-                         [f"if {i} < length and self.{slots[i]} == value: to_remove_slot_idx = {i}" for i in range(internal_size)])}
+                {splice(4, [
+                    f"if {i} < length and self.{slots[i]} == value: to_remove_slot_idx = {i}"
+                    for i in range(internal_size)
+                ])}
 
                 if to_remove_slot_idx is None:
                     return
