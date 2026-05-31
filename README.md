@@ -15,7 +15,7 @@ Opticol is beneficial when your application:
 - Has memory constraints or needs to reduce memory footprint
 - Can benefit from transparent optimization without code changes
 
-For general use cases where memory isn't constrained, standard Python collections are perfectly adequate.
+For general use cases where memory isn't constrained, standard Python collections are perfectly adequate (and are recommended).
 
 ## Usage
 
@@ -150,3 +150,9 @@ Below is a table which outlines the memory consumption differences per collectio
 |               |1     |216        |40           |81       |
 |               |2     |216        |48           |78       |
 |               |3     |216        |56           |74       |
+
+## Runtime Cost
+
+Since the collection types in this package are implemented in python (and for mutable collections, may have to handle complex state management), they are significantly slower than the builtin types. For some use cases this may be acceptable, and in fact may make the overall system faster if the memory savings outweigh the runtime penalty. As a rough estimate, you can consider the immutable collections to be about a third slower, and immutable collections to be 5 times slower, although some operations are 50x slower (think of a simple list geitem which is very optimized for a builtin, but in this system has complex state to manage under and overflow).
+
+So the recommendation is to use the projector API to be able to evaluate between different strategies easily and see how both forces interact in your system.
